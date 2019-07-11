@@ -7,25 +7,44 @@ onsuccess:
 onerror:
 	remove_clusterlog()
 
-localrules: all, ganon_check, krakenuniq_check, kraken_check, centrifuge_check, stats
+localrules: all, ganon_check, krakenuniq_prepare, krakenuniq_check, kraken_prepare, kraken_check, centrifuge_prepare, centrifuge_check, stats
 
 rule all:
 	input:
 		stats = [database +"/"+ tool +"_db/"+ parameter + "/" + tool + "_db.stats" for database in config["databases"] for tool in config["tools"] for parameter in config["parameters"][tool]]
 
 rule stats:
-	input: time = "{database}/ganon_db/{parameters}/{tool}_db.time",
-		   check = "{database}/ganon_db/{parameters}/{tool}_db.check"
-	output: stats = "{database}/ganon_db/{parameters}/{tool}_db.stats"
+	input: time = "{database}/{tool}_db/{parameters}/{tool}_db.time",
+		   check = "{database}/{tool}_db/{parameters}/{tool}_db.check"
+	output: stats = "{database}/{tool}_db/{parameters}/{tool}_db.stats"
 	shell: 
-	"""
-		awk '{s+=$1}END{print s}' {input.check} > {output.stats} #sum of the file sizes
-		grep -oP "(?<=Elapsed \(wall clock\) time \(h:mm:ss or m:ss\):)[0-9:]*" {input.time} >> {output.stats}
-		grep -oP "(?<=Maximum resident set size \(kbytes\): ).+" {input.time} >> {output.stats}
-	"""
+		"""
+		#######
+		.stats: tool <tab> database <tab> parameters <tab> time elapsed <tab> time seconds <tab> peak memory bytes <tab> index size bytes
+		######
+
+		# elapsed time
+		timeelapsed=$(grep -oP "(?<=Elapsed \\(wall clock\\) time \\(h:mm:ss or m:ss\\): ).+" {input.time})
+		# time in seconds
+		timesec=$(echo ${{timeelapsed}} | awk '{{split($0,a,":");if(length(a)==2){{sec=(a[1]*60)+a[2]}}else{{sec=(a[1]*3600)+(a[2]*60)+a[3]}};print sec }}')
+
+		# peak memory in kilobytes 
+		memkbytes=$(grep -oP "(?<=Maximum resident set size \\(kbytes\\): ).+" {input.time})
+		# peak memory in bytes
+		membytes=$((memkbytes*1000))
+		
+		# index size (in bytes)
+		indexbytes=$(awk -F "\\t" '{{s+=$1}}END{{print s}}' {input.check})
+
+		echo "{wildcards.tool}\t{wildcards.database}\t{wildcards.parameters}\t${{timeelapsed}}\t${{timesec}}\t${{membytes}}\t${{indexbytes}}" > {output.stats}
+		"""
 
 rule ganon:
-	input: fasta = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["fasta"])
+	input: fasta = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["fasta"]),
+			nodes = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["nodes"]),
+			merged = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["merged"]),
+			names = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["names"]),
+			acc_len_taxid_assembly = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["acc_len_taxid_assembly"])
 	output: db1="{database}/ganon_db/{parameters}/ganon_db.bins",
 			db2="{database}/ganon_db/{parameters}/ganon_db.filter",
 			db3="{database}/ganon_db/{parameters}/ganon_db.map",
@@ -33,13 +52,10 @@ rule ganon:
 			time="{database}/ganon_db/{parameters}/ganon_db.time",
 	log: "{database}/ganon_db/{parameters}/ganon_db.log"
 	threads: config["threads"]
-	conda: srcdir("../envs/ganon.yaml") 
+	#conda: srcdir("../envs/ganon.yaml") 
 	params: params = lambda wildcards: config["parameters"]["ganon"][wildcards.parameters],
-			nodes = lambda wildcards: config["databases"][wildcards.database]["nodes"],
-			merged = lambda wildcards: config["databases"][wildcards.database]["merged"],
-			names = lambda wildcards: config["databases"][wildcards.database]["names"],
-			lentaxid = lambda wildcards: config["databases"][wildcards.database]["lentaxid"]
-	shell: "/usr/bin/time -v --output={output.time} {config[tools][ganon]}ganon build -d {wildcards.database}/ganon_db/{wildcards.parameters}/ganon_db -i {input.fasta} -t {threads} --taxdump-file {params.nodes} {params.names} {params.merged} --seq-info-file {params.lentaxid} {params.params} > {log} 2>&1"
+			dbprefix = "{database}/ganon_db/{parameters}/"
+	shell: "/usr/bin/time -v --output={output.time} {config[tools][ganon]}ganon build --ganon-path {config[tools][ganon]}build --taxsbp-path {config[tools][ganon]}taxsbp -d {params.dbprefix}ganon_db -i {input.fasta} -t {threads} --taxdump-file {input.nodes} {input.names} {input.merged} --seq-info-file {input.acc_len_taxid_assembly} {params.params} > {log} 2>&1"
 
 rule ganon_check:
 	input: "{database}/ganon_db/{parameters}/ganon_db.bins",
@@ -47,10 +63,35 @@ rule ganon_check:
 			"{database}/ganon_db/{parameters}/ganon_db.map",
 			"{database}/ganon_db/{parameters}/ganon_db.nodes"
 	output: "{database}/ganon_db/{parameters}/ganon_db.check"
-	shell: "du -b {input} > {output}"
+	shell: "du --block-size=1 {input} > {output}" #output in bytes
+
+rule krakenuniq_prepare:
+	input: fasta = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["fasta"]),
+			acc_len_taxid_assembly = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["acc_len_taxid_assembly"]),
+			nodes = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["nodes"]),
+			names = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["names"])
+	output: fasta = temp("{database}/krakenuniq_db/{parameters}/library/file.fna"),
+			seqid2taxid_assembly = temp("{database}/krakenuniq_db/{parameters}/library/seqid2taxid.map"),
+			nodes = temp("{database}/krakenuniq_db/{parameters}/taxonomy/nodes.dmp"),
+			names = temp("{database}/krakenuniq_db/{parameters}/taxonomy/names.dmp")
+	params: dbprefix = "{database}/krakenuniq_db/{parameters}/"
+	shell: 
+		"""
+		mkdir -p {params.dbprefix}taxonomy
+		mkdir -p {params.dbprefix}library
+
+		ln -sf {input.nodes} {output.nodes} # link because just use for building (all info in taxDB)
+		ln -sf {input.names} {output.names} # link because just use for building (all info in taxDB)
+		cp {input.fasta} {output.fasta} # temp copy to get correct jellyfish hash size when building
+		awk -F "\\t" 'BEGIN {{FS="\\t";OFS="\\t"}}{{ if($4!="na"){{ print $1,$3,$4 }}}}' {input.acc_len_taxid_assembly} > {output.seqid2taxid_assembly}
+		"""
+
 
 rule krakenuniq:
- 	input: fasta = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["fasta"])
+ 	input: fasta = "{database}/krakenuniq_db/{parameters}/library/file.fna",
+ 			seqid2taxid_assembly = "{database}/krakenuniq_db/{parameters}/library/seqid2taxid.map",
+ 			nodes = "{database}/krakenuniq_db/{parameters}/taxonomy/nodes.dmp",
+			names = "{database}/krakenuniq_db/{parameters}/taxonomy/names.dmp"
 	output: db1="{database}/krakenuniq_db/{parameters}/database.idx",
 			db2="{database}/krakenuniq_db/{parameters}/database.kdb",
 			db3="{database}/krakenuniq_db/{parameters}/taxDB",
@@ -59,22 +100,11 @@ rule krakenuniq:
 	threads: config["threads"]
 	conda: srcdir("../envs/krakenuniq.yaml") 
 	params: params = lambda wildcards: config["parameters"]["krakenuniq"][wildcards.parameters],
-			nodes = lambda wildcards: config["databases"][wildcards.database]["nodes"],
-			names = lambda wildcards: config["databases"][wildcards.database]["names"],
-			seqid2taxid_assembly = lambda wildcards: config["databases"][wildcards.database]["seqid2taxid_assembly"]
+			dbprefix = "{database}/krakenuniq_db/{parameters}/"
 	shell: 
 		"""
-		dbprefix={wildcards.database}/krakenuniq_db/{wildcards.parameters}/
-		mkdir -p ${{dbprefix}}taxonomy
-		ln -sf {params.nodes} ${{dbprefix}}taxonomy/nodes.dmp
-		ln -sf {params.names} ${{dbprefix}}taxonomy/names.dmp
-
-		mkdir -p ${{dbprefix}}library
-		cp {input.fasta} ${{dbprefix}}library/file.fna #copy to get jellyfish hash size
-		ln -sf  {params.seqid2taxid_assembly} ${{dbprefix}}library/seqid2taxid.map
-
-		/usr/bin/time -v --output={output.time} {config[tools][krakenuniq]}krakenuniq-build --db ${{dbprefix}} --threads {threads} {params.params} > {log} 2>&1
-		rm -rvf ${{dbprefix}}library/ ${{dbprefix}}taxonomy/ ${{dbprefix}}database_* ${{dbprefix}}database.jdb ${{dbprefix}}database.kdb.counts ${{dbprefix}}database.kraken.tsv ${{dbprefix}}database.report.tsv ${{dbprefix}}database0.kdb ${{dbprefix}}library-files.txt ${{dbprefix}}seqid2taxid.map ${{dbprefix}}seqid2taxid.map.orig ${{dbprefix}}seqid2taxid-plus.map >> {log} 2>&1
+		/usr/bin/time -v --output={output.time} {config[tools][krakenuniq]}krakenuniq-build --db {params.dbprefix} --threads {threads} {params.params} > {log} 2>&1
+		rm -rvf {params.dbprefix}library/ {params.dbprefix}taxonomy/ {params.dbprefix}database_* {params.dbprefix}database.jdb {params.dbprefix}database.kdb.counts {params.dbprefix}database.kraken.tsv {params.dbprefix}database.report.tsv {params.dbprefix}database0.kdb {params.dbprefix}library-files.txt {params.dbprefix}seqid2taxid.map {params.dbprefix}seqid2taxid.map.orig {params.dbprefix}seqid2taxid-plus.map >> {log} 2>&1
 		"""
 
 rule krakenuniq_check:
@@ -82,46 +112,70 @@ rule krakenuniq_check:
 			"{database}/krakenuniq_db/{parameters}/database.kdb",
 			"{database}/krakenuniq_db/{parameters}/taxDB"
 	output: "{database}/krakenuniq_db/{parameters}/krakenuniq_db.check"
-	shell: "du -b {input} > {output}"
+	shell: "du --block-size=1 {input} > {output}"#output in bytes
+
+rule kraken_prepare:
+	input: acc_len_taxid_assembly = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["acc_len_taxid_assembly"]),
+			nodes = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["nodes"]),
+			names = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["names"])
+	output: accession2taxid = temp("{database}/kraken_db/{parameters}/taxonomy/kraken.accession2taxid"),
+			nodes = "{database}/kraken_db/{parameters}/taxonomy/nodes.dmp",
+			names = "{database}/kraken_db/{parameters}/taxonomy/names.dmp"
+	params: dbprefix = "{database}/kraken_db/{parameters}/"
+	shell: 
+		"""
+		mkdir -p {params.dbprefix}taxonomy
+		mkdir -p {params.dbprefix}library
+
+		cp {input.nodes} {output.nodes} # copy because it's part of the db
+		cp {input.names} {output.names} # copy because it's part of the db
+
+		awk -F "\\t" 'BEGIN {{FS="\\t";OFS="\\t"; print "accession","accession.version","taxid","gi"}}{{ if($1!="na"){{ split($1,acc,"."); print acc[1],$1,$3,"0" }}}}' {input.acc_len_taxid_assembly} > {output.accession2taxid}
+		"""
 
 rule kraken:
- 	input: fasta = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["fasta"])
+ 	input: fasta = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["fasta"]),
+ 			accession2taxid = "{database}/kraken_db/{parameters}/taxonomy/kraken.accession2taxid",
+ 			nodes = "{database}/kraken_db/{parameters}/taxonomy/nodes.dmp",
+			names = "{database}/kraken_db/{parameters}/taxonomy/names.dmp"
 	output: db1="{database}/kraken_db/{parameters}/database.idx",
 			db2="{database}/kraken_db/{parameters}/database.kdb",
-			db3=directory("{database}/kraken_db/{parameters}/taxonomy/"),
 			time="{database}/kraken_db/{parameters}/kraken_db.time"
 	log: "{database}/kraken_db/{parameters}/kraken_db.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/kraken.yaml") 
 	params: params = lambda wildcards: config["parameters"]["kraken"][wildcards.parameters],
-			nodes = lambda wildcards: config["databases"][wildcards.database]["nodes"],
-			names = lambda wildcards: config["databases"][wildcards.database]["names"],
-			accession2taxid = lambda wildcards: config["databases"][wildcards.database]["accession2taxid"]
+			dbprefix = "{database}/kraken_db/{parameters}/"
 	shell: 
 		"""
-		dbprefix="{wildcards.database}/kraken_db/{wildcards.parameters}/"
-		mkdir -p ${{dbprefix}}taxonomy
-		ln -sf {params.nodes} ${{dbprefix}}taxonomy/nodes.dmp
-		ln -sf {params.names} ${{dbprefix}}taxonomy/names.dmp
-		ln -sf {params.accession2taxid} ${{dbprefix}}taxonomy/kraken.accession2taxid
-	
 		/usr/bin/time -v --output={output.time} bash -c "
-		{config[tools][kraken]}kraken-build --db ${{dbprefix}} --add-to-library {input.fasta} > {log} 2>&1;
-		{config[tools][kraken]}kraken-build --build --db ${{dbprefix}} --threads {threads} {params.params} >> {log} 2>&1
+		{config[tools][kraken]}kraken-build --db {params.dbprefix} --add-to-library {input.fasta} > {log} 2>&1;
+		{config[tools][kraken]}kraken-build --build --db {params.dbprefix} --threads {threads} {params.params} >> {log} 2>&1
 		"
-
-		rm -rfv ${{dbprefix}}library/ ${{dbprefix}}database.jdb ${{dbprefix}}accmap_file.tmp ${{dbprefix}}lca.complete ${{dbprefix}}seqid2taxid.map >> {log} 2>&1
+		rm -rfv {params.dbprefix}library/ {params.dbprefix}database.jdb {params.dbprefix}accmap_file.tmp {params.dbprefix}lca.complete {params.dbprefix}seqid2taxid.map {params.dbprefix}taxonomy/prelim_map.txt >> {log} 2>&1
 		"""
 
 rule kraken_check:
 	input: "{database}/kraken_db/{parameters}/database.idx",
 		"{database}/kraken_db/{parameters}/database.kdb",
-		"{database}/kraken_db/{parameters}/taxonomy/"
+		"{database}/kraken_db/{parameters}/taxonomy/nodes.dmp",
+		"{database}/kraken_db/{parameters}/taxonomy/names.dmp"
 	output: "{database}/kraken_db/{parameters}/kraken_db.check"
-	shell: "du -b {input} > {output}"
+	shell: "du --block-size=1 {input} > {output}"#output in bytes
+
+rule centrifuge_prepare:
+	input: acc_len_taxid_assembly = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["acc_len_taxid_assembly"])
+	output: seqid2taxid = temp("{database}/centrifuge_db/{parameters}/seqid2taxid.map")
+	shell:
+		"""
+		awk -F "\\t" 'BEGIN {{FS="\\t";OFS="\\t"}}{{ if($4!="na"){{ print $1,$3}} }}' {input.acc_len_taxid_assembly} > {output.seqid2taxid}
+		"""
 
 rule centrifuge:
- 	input: fasta = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["fasta"])
+ 	input: fasta = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["fasta"]),
+ 			seqid2taxid = "{database}/centrifuge_db/{parameters}/seqid2taxid.map",
+ 			nodes = lambda wildcards: config["databases"][wildcards.database]["nodes"],
+			names = lambda wildcards: config["databases"][wildcards.database]["names"]
 	output: db1="{database}/centrifuge_db/{parameters}/centrifuge_db.1.cf",
 			db2="{database}/centrifuge_db/{parameters}/centrifuge_db.2.cf",
 			db3="{database}/centrifuge_db/{parameters}/centrifuge_db.3.cf",
@@ -129,16 +183,14 @@ rule centrifuge:
 	log: "{database}/centrifuge_db/{parameters}/centrifuge_db.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/centrifuge.yaml") 
-	params: params = lambda wildcards: config["parameters"]["centrifuge"][wildcards.parameters],
-			nodes = lambda wildcards: config["databases"][wildcards.database]["nodes"],
-			names = lambda wildcards: config["databases"][wildcards.database]["names"],
-			seqid2taxid = lambda wildcards: config["databases"][wildcards.database]["seqid2taxid"]
+	params: params = lambda wildcards: config["parameters"]["kraken"][wildcards.parameters],
+			dbprefix = "{database}/centrifuge_db/{parameters}/"
 	shell: 
-		"/usr/bin/time -v --output={output.time} {config[tools][centrifuge]}centrifuge-build -p {threads} {params.params} --taxonomy-tree {params.nodes} --name-table {params.names} --conversion-table {params.seqid2taxid} {input.fasta} {wildcards.database}/centrifuge_db/{wildcards.parameters}/centrifuge_db > {log} 2>&1"
+		"/usr/bin/time -v --output={output.time} {config[tools][centrifuge]}centrifuge-build -p {threads} {params.params} --taxonomy-tree {input.nodes} --name-table {input.names} --conversion-table {input.seqid2taxid} {input.fasta} {params.dbprefix}centrifuge_db > {log} 2>&1"
 
 rule centrifuge_check:
 	input:  "{database}/centrifuge_db/{parameters}/centrifuge_db.1.cf",
 			"{database}/centrifuge_db/{parameters}/centrifuge_db.2.cf",
 			"{database}/centrifuge_db/{parameters}/centrifuge_db.3.cf"
 	output: "{database}/centrifuge_db/{parameters}/centrifuge_db.check"
-	shell: "du -b {input} > {output}"
+	shell: "du --block-size=1 {input} > {output}"#output in bytes

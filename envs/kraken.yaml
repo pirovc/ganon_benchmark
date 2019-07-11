@@ -1,0 +1,5 @@
+channels:
+ - bioconda
+dependencies:
+ - jellyfish=1.1.12
+ - kraken=1.0

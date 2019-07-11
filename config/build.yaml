@@ -1,0 +1,27 @@
+workdir: "/home/users/databases/"
+threads: 24
+
+databases:
+  db_name: 
+    fasta: "/home/users/files/sequences.fna"
+    nodes: "/home/users/files/nodes.dmp"
+    merged: "/home/users/files/merged.dmp"
+    names: "/home/users/files/names.dmp"
+    acc_len_taxid_assembly: "/home/users/files/acc_len_taxid_assembly.txt"
+
+tools:
+  ganon: ""
+  krakenuniq: ""
+  kraken: ""
+  centrifuge: ""
+
+parameters:
+  ganon: 
+    default: ""
+    config1: "-r phylum -f 0.05"
+  krakenuniq:
+    default: "--taxids-for-genomes" 
+  kraken:
+    default: ""
+  centrifuge:
+    default: ""
