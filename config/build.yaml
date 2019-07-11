@@ -9,7 +9,7 @@ databases:
     names: "/home/users/files/names.dmp"
     acc_len_taxid_assembly: "/home/users/files/acc_len_taxid_assembly.txt"
 
-tools:
+tools_path:
   ganon: ""
   krakenuniq: ""
   kraken: ""

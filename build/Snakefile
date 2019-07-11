@@ -11,7 +11,7 @@ localrules: all, ganon_check, krakenuniq_prepare, krakenuniq_check, kraken_prepa
 
 rule all:
 	input:
-		stats = [database +"/"+ tool +"_db/"+ parameter + "/" + tool + "_db.stats" for database in config["databases"] for tool in config["tools"] for parameter in config["parameters"][tool]]
+		stats = [database +"/"+ tool +"_db/"+ parameter + "/" + tool + "_db.stats" for database in config["databases"] for tool in config["parameters"] for parameter in config["parameters"][tool]]
 
 rule stats:
 	input: time = "{database}/{tool}_db/{parameters}/{tool}_db.time",
@@ -20,7 +20,7 @@ rule stats:
 	shell: 
 		"""
 		#######
-		.stats: tool <tab> database <tab> parameters <tab> time elapsed <tab> time seconds <tab> peak memory bytes <tab> index size bytes
+		# .stats: tool <tab> database <tab> parameters <tab> time elapsed <tab> time seconds <tab> peak memory bytes <tab> index size bytes
 		######
 
 		# elapsed time
@@ -55,7 +55,7 @@ rule ganon:
 	#conda: srcdir("../envs/ganon.yaml") 
 	params: params = lambda wildcards: config["parameters"]["ganon"][wildcards.parameters],
 			dbprefix = "{database}/ganon_db/{parameters}/"
-	shell: "/usr/bin/time -v --output={output.time} {config[tools][ganon]}ganon build --ganon-path {config[tools][ganon]}build --taxsbp-path {config[tools][ganon]}taxsbp -d {params.dbprefix}ganon_db -i {input.fasta} -t {threads} --taxdump-file {input.nodes} {input.names} {input.merged} --seq-info-file {input.acc_len_taxid_assembly} {params.params} > {log} 2>&1"
+	shell: "/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon build -d {params.dbprefix}ganon_db -i {input.fasta} -t {threads} --taxdump-file {input.nodes} {input.names} {input.merged} --seq-info-file {input.acc_len_taxid_assembly} {params.params} > {log} 2>&1"
 
 rule ganon_check:
 	input: "{database}/ganon_db/{parameters}/ganon_db.bins",
@@ -103,7 +103,7 @@ rule krakenuniq:
 			dbprefix = "{database}/krakenuniq_db/{parameters}/"
 	shell: 
 		"""
-		/usr/bin/time -v --output={output.time} {config[tools][krakenuniq]}krakenuniq-build --db {params.dbprefix} --threads {threads} {params.params} > {log} 2>&1
+		/usr/bin/time -v --output={output.time} {config[tools_path][krakenuniq]}krakenuniq-build --db {params.dbprefix} --threads {threads} {params.params} > {log} 2>&1
 		rm -rvf {params.dbprefix}library/ {params.dbprefix}taxonomy/ {params.dbprefix}database_* {params.dbprefix}database.jdb {params.dbprefix}database.kdb.counts {params.dbprefix}database.kraken.tsv {params.dbprefix}database.report.tsv {params.dbprefix}database0.kdb {params.dbprefix}library-files.txt {params.dbprefix}seqid2taxid.map {params.dbprefix}seqid2taxid.map.orig {params.dbprefix}seqid2taxid-plus.map >> {log} 2>&1
 		"""
 
@@ -149,8 +149,8 @@ rule kraken:
 	shell: 
 		"""
 		/usr/bin/time -v --output={output.time} bash -c "
-		{config[tools][kraken]}kraken-build --db {params.dbprefix} --add-to-library {input.fasta} > {log} 2>&1;
-		{config[tools][kraken]}kraken-build --build --db {params.dbprefix} --threads {threads} {params.params} >> {log} 2>&1
+		{config[tools_path][kraken]}kraken-build --db {params.dbprefix} --add-to-library {input.fasta} > {log} 2>&1;
+		{config[tools_path][kraken]}kraken-build --build --db {params.dbprefix} --threads {threads} {params.params} >> {log} 2>&1
 		"
 		rm -rfv {params.dbprefix}library/ {params.dbprefix}database.jdb {params.dbprefix}accmap_file.tmp {params.dbprefix}lca.complete {params.dbprefix}seqid2taxid.map {params.dbprefix}taxonomy/prelim_map.txt >> {log} 2>&1
 		"""
@@ -186,7 +186,7 @@ rule centrifuge:
 	params: params = lambda wildcards: config["parameters"]["kraken"][wildcards.parameters],
 			dbprefix = "{database}/centrifuge_db/{parameters}/"
 	shell: 
-		"/usr/bin/time -v --output={output.time} {config[tools][centrifuge]}centrifuge-build -p {threads} {params.params} --taxonomy-tree {input.nodes} --name-table {input.names} --conversion-table {input.seqid2taxid} {input.fasta} {params.dbprefix}centrifuge_db > {log} 2>&1"
+		"/usr/bin/time -v --output={output.time} {config[tools_path][centrifuge]}centrifuge-build -p {threads} {params.params} --taxonomy-tree {input.nodes} --name-table {input.names} --conversion-table {input.seqid2taxid} {input.fasta} {params.dbprefix}centrifuge_db > {log} 2>&1"
 
 rule centrifuge_check:
 	input:  "{database}/centrifuge_db/{parameters}/centrifuge_db.1.cf",

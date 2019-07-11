@@ -1,0 +1,38 @@
+workdir: "/home/user/databases/"
+threads: 24
+
+scripts_dir: "/home/user/scripts/"
+
+samples:
+  sample_name:
+    fq1: "/home/user/simulated.1.fq.gz"
+    fq2: ""
+    gt: "/home/user/simulated.gt.txt"
+
+tools_path:
+  ganon: ""
+  krakenuniq: ""
+  kraken: ""
+  centrifuge: ""
+
+parameters:
+  ganon: 
+    e3u2f1: "-e 3 -u 2 -f 1"
+  krakenuniq:
+    default: ""
+  kraken:
+    default: ""
+  centrifuge:
+    default: ""
+    taxid: "taxid"
+
+databases:
+  db_name:
+    nodes: "/home/users/files/nodes.dmp"
+    merged: "/home/users/files/merged.dmp"
+    acc_len_taxid_assembly: "/home/users/files/acc_len_taxid_assembly.txt"
+    prefix:
+      ganon: "/home/user/databases/ganon_db/default/"
+      krakenuniq: "/home/user/databases/krakenuniq_db/default/"
+      kraken: "/home/user/databases/kraken_db/default/"
+      centrifuge: "/home/user/databases/centrifuge_db/default/"
