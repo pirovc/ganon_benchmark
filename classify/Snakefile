@@ -181,3 +181,29 @@ rule centrifuge_format:
 		python3 {config[scripts_dir]}/centrifuge_lca.py {output.parsed} {input.nodes} | gzip > {output.final}
 		"""
 
+
+rule diamond:
+	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
+			dbprefix = lambda wildcards: os.path.abspath(config["run"]["diamond"][wildcards.database][wildcards.dbconfig]["prefix"])
+	output: res = "{database}/{sample}/diamond-{dbconfig}-{parameters}.res",
+			time = "{database}/{sample}/diamond-{dbconfig}-{parameters}.time",
+			mbpm="{database}/{sample}/diamond-{dbconfig}-{parameters}.mbpm"
+	log: "{database}/{sample}/diamond-{dbconfig}-{parameters}.log"
+	threads: config["threads"]
+	conda: srcdir("../envs/diamond.yaml")
+	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
+			params = lambda wildcards: config["run"]["diamond"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
+	shell: 
+		"""
+		/usr/bin/time -v --output={output.time} {config[tools_path][diamond]}diamond blastx --db {input.dbprefix}/diamond_db --query {input.fq1} --out {output.res} --outfmt 102 --threads {threads} > {log} 2>&1
+
+		grep -oP "(?<=Total time \\= ).*" {log} | awk '{{print "*"substr($1, 1, length($1)-1)"*"}}' > {output.mbpm}
+		"""
+
+rule diamond_format:
+	input: res = "{database}/{sample}/diamond-{dbconfig}-{parameters}.res"
+	output: "{database}/{sample}/diamond-{dbconfig}-{parameters}.out.gz"
+	shell:
+		"""
+		awk 'FS="\\t"{{if($2!="0"){{print $1"\\t0\\t"$2;}} }}' {input.res} | gzip > {output}
+		"""

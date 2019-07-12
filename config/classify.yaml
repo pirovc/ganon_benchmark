@@ -8,6 +8,7 @@ tools_path:
   krakenuniq: ""
   kraken: ""
   centrifuge: ""
+  diamond: ""
 
 samples:
   sample_name1:

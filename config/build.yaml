@@ -5,6 +5,7 @@ tools_path:
   krakenuniq: ""
   kraken: ""
   centrifuge: ""
+  diamond: ""
 
 databases:
   db_name1: 

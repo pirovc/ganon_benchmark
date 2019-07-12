@@ -7,7 +7,7 @@ onsuccess:
 onerror:
 	remove_clusterlog()
 
-localrules: all, ganon_check, krakenuniq_prepare, krakenuniq_check, kraken_prepare, kraken_check, centrifuge_prepare, centrifuge_check, stats
+localrules: all, ganon_check, krakenuniq_prepare, krakenuniq_check, kraken_prepare, kraken_check, centrifuge_prepare, centrifuge_check, diamond_prepare, diamond_check, stats
 
 rule all:
 	input:
@@ -38,7 +38,7 @@ rule stats:
 
 		echo "{wildcards.tool}\t{wildcards.database}\t{wildcards.parameters}\t${{timeelapsed}}\t${{timesec}}\t${{membytes}}\t${{indexbytes}}" > {output.stats}
 		"""
-
+		
 rule ganon:
 	input: fasta = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["fasta"]),
 			nodes = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["nodes"]),
@@ -194,3 +194,31 @@ rule centrifuge_check:
 			"{database}/centrifuge_db/{parameters}/centrifuge_db.3.cf"
 	output: "{database}/centrifuge_db/{parameters}/centrifuge_db.check"
 	shell: "du --block-size=1 {input} > {output}"#output in bytes
+
+rule diamond_prepare:
+	output: accession2taxid = "{database}/prot.accession2taxid.gz"
+	params: dbprefix = "{database}/"
+	shell: 
+		"""
+		mkdir -p {params.dbprefix}
+		curl -L -o {output.accession2taxid}  ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/accession2taxid/prot.accession2taxid.gz
+		"""
+
+rule diamond:
+ 	input: faa = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["faa"]),
+ 			accession2taxid = "{database}/prot.accession2taxid.gz",
+ 			nodes = lambda wildcards: config["databases"][wildcards.database]["nodes"]
+	output: db1="{database}/diamond_db/{parameters}/diamond_db.dmnd",
+			time="{database}/diamond_db/{parameters}/diamond_db.time"
+	log: "{database}/diamond_db/{parameters}/diamond_db.log"
+	threads: config["threads"]
+	conda: srcdir("../envs/diamond.yaml") 
+	params: params = lambda wildcards: config["run"]["diamond"][wildcards.database][wildcards.parameters],
+			dbprefix = "{database}/diamond_db/{parameters}/"
+	shell: "/usr/bin/time -v --output={output.time} {config[tools_path][diamond]}diamond makedb --db {params.dbprefix}diamond_db --in {input.faa} --threads {threads} --taxonmap {input.accession2taxid} --taxonnodes {input.nodes} > {log} 2>&1"
+
+rule diamond_check:
+	input: "{database}/diamond_db/{parameters}/diamond_db.dmnd"
+	output: "{database}/diamond_db/{parameters}/diamond_db.check"
+	shell: "du --block-size=1 {input} > {output}"#output in bytes
+
