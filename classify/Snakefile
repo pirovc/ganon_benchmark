@@ -9,17 +9,17 @@ onerror:
 
 rule all:
 	input:
-		npz = [database +"/"+ sample +"/"+ tool +"-"+ parameter + ".npz" for database in config["databases"] for tool in config["databases"][database]["prefix"] for sample in config["samples"] for parameter in config["parameters"][tool]],
-		evals = [database +"/"+ sample +"/"+ tool +"-"+ parameter + ".eval" for database in config["databases"] for tool in config["databases"][database]["prefix"] for sample in config["samples"] for parameter in config["parameters"][tool]],
-		stats = [database +"/"+ sample +"/"+ tool +"-"+ parameter + ".stats" for database in config["databases"] for tool in config["databases"][database]["prefix"] for sample in config["samples"] for parameter in config["parameters"][tool]]
-		
+		npzs = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".npz" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
+		evals = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".eval" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
+		stats = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".stats" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]]
+
 rule stats:
-	input: time = "{database}/{sample}/{tool}-{parameters}.time"
-	output: stats = "{database}/{sample}/{tool}-{parameters}.stats"
+	input: time = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.time"
+	output: stats = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.stats"
 	shell: 
 		"""
 		#######
-		# .stats: tool <tab> sample <tab> database <tab> parameters <tab> time elapsed <tab> time seconds <tab> peak memory bytes
+		# .stats: tool <tab> sample <tab> database <tab> dbconfig <tab> parameters <tab> time elapsed <tab> time seconds <tab> peak memory bytes
 		######
 
 		# elapsed time
@@ -32,124 +32,123 @@ rule stats:
 		# peak memory in bytes
 		membytes=$((memkbytes*1000))
 
-		echo "{wildcards.tool}\t{wildcards.sample}\t{wildcards.database}\t{wildcards.parameters}\t${{timeelapsed}}\t${{timesec}}\t${{membytes}}" > {output.stats}
+		echo "{wildcards.tool}\t{wildcards.sample}\t{wildcards.database}\t{wildcards.dbconfig}\t{wildcards.parameters}\t${{timeelapsed}}\t${{timesec}}\t${{membytes}}" > {output.stats}
 		"""
 
 rule evaluation:
-	input: results = "{database}/{sample}/{tool}-{parameters}.out.gz",
+	input: results = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.out.gz",
 			gt = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["gt"]),
 			nodes = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["nodes"]),
 			merged = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["merged"]),
 			acc_len_taxid_assembly = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["acc_len_taxid_assembly"])
-	output: ev = "{database}/{sample}/{tool}-{parameters}.eval",
-			npz = "{database}/{sample}/{tool}-{parameters}.npz"
-	#### GET FIELDS CORRECTLY FROM acc_len_taxid_assembly
+	output: ev = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.eval",
+			npz = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.npz"
 	shell: "python3 {config[scripts_dir]}eval.py {input.nodes} {input.merged} {input.acc_len_taxid_assembly} {input.gt} {input.results} {output.npz} > {output.ev}"
 
 rule ganon:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
-			dbprefix = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["prefix"]["ganon"])
-	output: out="{database}/{sample}/ganon-{parameters}.out",
-			lca="{database}/{sample}/ganon-{parameters}.lca",
-			rep="{database}/{sample}/ganon-{parameters}.rep",
-			tre="{database}/{sample}/ganon-{parameters}.tre",
-			time="{database}/{sample}/ganon-{parameters}.time"
-	log: "{database}/{sample}/ganon-{parameters}.log"
+			dbprefix = lambda wildcards: os.path.abspath(config["run"]["ganon"][wildcards.database][wildcards.dbconfig]["prefix"])
+	output: out="{database}/{sample}/ganon-{dbconfig}-{parameters}.out",
+			lca="{database}/{sample}/ganon-{dbconfig}-{parameters}.lca",
+			rep="{database}/{sample}/ganon-{dbconfig}-{parameters}.rep",
+			tre="{database}/{sample}/ganon-{dbconfig}-{parameters}.tre",
+			time="{database}/{sample}/ganon-{dbconfig}-{parameters}.time"
+	log: "{database}/{sample}/ganon-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	#conda: srcdir("../envs/ganon.yaml")
-	params: outprefix = "{database}/{sample}/ganon-{parameters}",
+	params: outprefix = "{database}/{sample}/ganon-{dbconfig}-{parameters}",
 			input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
-			params = lambda wildcards: config["parameters"]["ganon"][wildcards.parameters] if config["parameters"]["ganon"][wildcards.parameters] != "default" else "",
+			params = lambda wildcards: config["run"]["ganon"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters],
 	shell: "/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon classify --verbose -d {input.dbprefix}/ganon_db -r {input.fq1} -t {threads} {params.params} -o {params.outprefix} > {log} 2>&1"
 
 rule ganon_format:
-	input: lca="{database}/{sample}/ganon-{parameters}.lca",
-			dbprefix = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["prefix"]["ganon"])
-	output: "{database}/{sample}/ganon-{parameters}.out.gz"
+	input: lca="{database}/{sample}/ganon-{dbconfig}-{parameters}.lca",
+			dbprefix = lambda wildcards: os.path.abspath(config["run"]["ganon"][wildcards.database][wildcards.dbconfig]["prefix"])
+	output: "{database}/{sample}/ganon-{dbconfig}-{parameters}.out.gz"
 	shell: 
 		"""
 		# if numeric (taxid) or assembly
-		awk 'FS="\\t"{{if($2 ~ /^[0-9]+$/){{print $1"\\t0\\t"$2}}}}' {input} | gzip > {output}
+		awk 'FS="\\t"{{if($2 ~ /^[0-9]+$/){{print $1"\\t0\\t"$2}}}}' {input.lca} | gzip > {output}
 		
 
 		######## RE-CHECK #####
-		join -1 2 -2 2 <(awk 'FS="\\t"{{if( $2 !~ /^[0-9]+$/){{print $0}}}}' {input} | sort -k 2,2) <(cut -f 3,4 {input.dbprefix}/ganon_db.bins | sort | uniq | sort -k 2,2) -t$'\\t' -o "1.1,1.2,2.1" | gzip >> {output}
+		join -1 2 -2 2 <(awk 'FS="\\t"{{if( $2 !~ /^[0-9]+$/){{print $0}}}}' {input.lca} | sort -k 2,2) <(cut -f 3,4 {input.dbprefix}/ganon_db.bins | sort | uniq | sort -k 2,2) -t$'\\t' -o "1.1,1.2,2.1" | gzip >> {output}
 		"""
 
 rule krakenuniq:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
-			dbprefix = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["prefix"]["krakenuniq"])
-	output: res = "{database}/{sample}/krakenuniq-{parameters}.res",
-			report = "{database}/{sample}/krakenuniq-{parameters}.report",
-			time="{database}/{sample}/krakenuniq-{parameters}.time"
-	log: "{database}/{sample}/krakenuniq-{parameters}.log"
+			dbprefix = lambda wildcards: os.path.abspath(config["run"]["krakenuniq"][wildcards.database][wildcards.dbconfig]["prefix"])
+	output: res = "{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.res",
+			report = "{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.report",
+			time="{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.time"
+	log: "{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/krakenuniq.yaml")
 	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
-			params = lambda wildcards: config["parameters"]["krakenuniq"][wildcards.parameters] if config["parameters"]["krakenuniq"][wildcards.parameters] != "default" else ""
+			params = lambda wildcards: config["run"]["krakenuniq"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
 	shell: "/usr/bin/time -v --output={output.time} {config[tools_path][krakenuniq]}krakenuniq --db {input.dbprefix} --threads {threads} --output {output.res} --only-classified-output --fastq-input --gzip-compressed --report-file {output.report} {params.params} {input.fq1} > {log} 2>&1"
 
 rule krakenuniq_format:
-	input: res = "{database}/{sample}/krakenuniq-{parameters}.res",
-			dbprefix = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["prefix"]["krakenuniq"])
-	output: "{database}/{sample}/krakenuniq-{parameters}.out.gz"
+	input: res = "{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.res",
+			dbprefix = lambda wildcards: os.path.abspath(config["run"]["krakenuniq"][wildcards.database][wildcards.dbconfig]["prefix"])
+	output: "{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.out.gz"
 	shell:
 		"""
 		# get assembly assignemnts:
 		join -1 3 -2 1 <(grep "^C" {input.res} | awk 'FS="\\t"{{if($3>=1000000000) print $0}}' | sort -k 3,3) <(sort -k 1,1 {input.dbprefix}/taxDB) -t$'\\t' -o "1.2,2.3,2.2" | gzip > {output}
 
 		# append taxid only assignments:
-		grep "^C" {input} | awk 'FS="\\t"{{if($3<1000000000) print $2"\\t0\\t"$3}}' | gzip >> {output}
+		grep "^C" {input.res} | awk 'FS="\\t"{{if($3<1000000000) print $2"\\t0\\t"$3}}' | gzip >> {output}
 		"""
 
 rule kraken:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
-			dbprefix = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["prefix"]["kraken"])
-	output: res = "{database}/{sample}/kraken-{parameters}.res",
-			time = "{database}/{sample}/kraken-{parameters}.time"
-	log: "{database}/{sample}/kraken-{parameters}.log"
+			dbprefix = lambda wildcards: os.path.abspath(config["run"]["kraken"][wildcards.database][wildcards.dbconfig]["prefix"])
+	output: res = "{database}/{sample}/kraken-{dbconfig}-{parameters}.res",
+			time = "{database}/{sample}/kraken-{dbconfig}-{parameters}.time"
+	log: "{database}/{sample}/kraken-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/kraken.yaml")
 	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
-			params = lambda wildcards: config["parameters"]["kraken"][wildcards.parameters] if config["parameters"]["kraken"][wildcards.parameters] != "default" else ""
+			params = lambda wildcards: config["run"]["kraken"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
 	shell: "/usr/bin/time -v --output={output.time} {config[tools_path][kraken]}kraken --db {input.dbprefix} --threads {threads} --output {output.res} --only-classified-output --fastq-input --gzip-compressed {params.params} {input.fq1} > {log} 2>&1"
 
 rule kraken_format:
-	input: "{database}/{sample}/kraken-{parameters}.res"
-	output: "{database}/{sample}/kraken-{parameters}.out.gz"
+	input: res = "{database}/{sample}/kraken-{dbconfig}-{parameters}.res"
+	output: "{database}/{sample}/kraken-{dbconfig}-{parameters}.out.gz"
 	shell:
 		"""
-		grep "^C" {input} | awk 'FS="\\t"{{print $2"\\t0\\t"$3}}' | gzip > {output}
+		grep "^C" {input.res} | awk 'FS="\\t"{{print $2"\\t0\\t"$3}}' | gzip > {output}
 		"""
 
 rule centrifuge:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
-			dbprefix = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["prefix"]["centrifuge"])
-	output: res = "{database}/{sample}/centrifuge-{parameters}.res",
-			time = "{database}/{sample}/centrifuge-{parameters}.time"
-	log: "{database}/{sample}/centrifuge-{parameters}.log"
+			dbprefix = lambda wildcards: os.path.abspath(config["run"]["centrifuge"][wildcards.database][wildcards.dbconfig]["prefix"])
+	output: res = "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.res",
+			time = "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.time"
+	log: "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/centrifuge.yaml")
 	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
-			params = lambda wildcards: config["parameters"]["centrifuge"][wildcards.parameters] if config["parameters"]["centrifuge"][wildcards.parameters] != "default" else ""
+			params = lambda wildcards: config["run"]["centrifuge"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
 	shell: "/usr/bin/time -v --output={output.time} {config[tools_path][centrifuge]}centrifuge -t -x {input.dbprefix}/centrifuge_db -U {input.fq1} --threads {threads} -S {output.res} --report-file /dev/null > {log} 2>&1"
 
 rule centrifuge_format:
-	input: "{database}/{sample}/centrifuge-{parameters}.res",
+	input: res= "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.res",
 			nodes = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["nodes"]),
 			acc_len_taxid_assembly = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["acc_len_taxid_assembly"])
-	output: parsed = temp("{database}/{sample}/centrifuge-{parameters}.parsed"),
-			final = "{database}/{sample}/centrifuge-{parameters}.out.gz"
-	params: params = lambda wildcards: config["parameters"]["centrifuge"][wildcards.parameters] if config["parameters"]["centrifuge"][wildcards.parameters] != "default" else "",
+	output: parsed = temp("{database}/{sample}/centrifuge-{dbconfig}-{parameters}.parsed"),
+			final = "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.out.gz"
+	params: params = lambda wildcards: config["run"]["centrifuge"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
 	shell: 
 		"""		
 		# group results by taxid
 		if [ "{params.params}" = "taxid" ]; then
-			awk -F"\\t" 'NR>1 {{if($2 != "unclassified" && $3 != "0"){{print $1"\t0\t"$3}}}}' {input} | sort | uniq > {output.parsed}
+			awk -F"\\t" 'NR>1 {{if($2 != "unclassified" && $3 != "0"){{print $1"\t0\t"$3}}}}' {input.res} | sort | uniq > {output.parsed}
 		else
 			awk -F"\\t" -v acc_len_taxid_assembly="{input.acc_len_taxid_assembly}" '
 			BEGIN{{while (getline < acc_len_taxid_assembly){{acc2assembly[$1]=$4;}}; close(acc_len_taxid_assembly)}} 
-			NR>1 {{if($2 != "unclassified" && $3 != "0"){{a=($2 in acc2assembly)?acc2assembly[$2]:"0";print $1"\t"a"\t"$3}}}}' {input} | sort | uniq > {output.parsed}
+			NR>1 {{if($2 != "unclassified" && $3 != "0"){{a=($2 in acc2assembly)?acc2assembly[$2]:"0";print $1"\t"a"\t"$3}}}}' {input.res} | sort | uniq > {output.parsed}
 		fi
 		python3 {config[scripts_dir]}/centrifuge_lca.py {output.parsed} {input.nodes} | gzip > {output.final}
 		"""

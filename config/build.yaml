@@ -1,27 +1,42 @@
-workdir: "/home/users/databases/"
+workdir: "/path/"
 threads: 24
-
-databases:
-  db_name: 
-    fasta: "/home/users/files/sequences.fna"
-    nodes: "/home/users/files/nodes.dmp"
-    merged: "/home/users/files/merged.dmp"
-    names: "/home/users/files/names.dmp"
-    acc_len_taxid_assembly: "/home/users/files/acc_len_taxid_assembly.txt"
-
 tools_path:
-  ganon: ""
+  ganon: "/path/ganon/"
   krakenuniq: ""
   kraken: ""
   centrifuge: ""
 
-parameters:
-  ganon: 
-    default: ""
-    config1: "-r phylum -f 0.05"
+databases:
+  db_name1: 
+    fasta: "/path/sequences.fna"
+    nodes: "/path/nodes.dmp"
+    merged: "/path/merged.dmp"
+    names: "/path/names.dmp"
+    acc_len_taxid_assembly: "/path/acc_len_taxid_assembly.txt"
+  db_name2: 
+    fasta: "/path/sequences.fna"
+    nodes: "/path/nodes.dmp"
+    merged: "/path/merged.dmp"
+    names: "/path/names.dmp"
+    acc_len_taxid_assembly: "/path/acc_len_taxid_assembly.txt"
+  db_name3: 
+    fasta: "/path/sequences.fna"
+    nodes: "/path/nodes.dmp"
+    merged: "/path/merged.dmp"
+    names: "/path/names.dmp"
+    acc_len_taxid_assembly: "/path/acc_len_taxid_assembly.txt"
+
+run:
+  ganon:
+    db_name1:
+      config_name1: "-x 1"
+      config_name2: "-x 2"
+    db_name2:
+      config_name1: "-x 1"
   krakenuniq:
-    default: "--taxids-for-genomes" 
-  kraken:
-    default: ""
-  centrifuge:
-    default: ""
+    db_name1:
+      config_name1: "-x 1"
+      config_name2: "-x 2"
+    db_name3:
+      config_name1: "-x 1"
+

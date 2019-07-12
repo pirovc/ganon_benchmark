@@ -11,7 +11,7 @@ localrules: all, ganon_check, krakenuniq_prepare, krakenuniq_check, kraken_prepa
 
 rule all:
 	input:
-		stats = [database +"/"+ tool +"_db/"+ parameter + "/" + tool + "_db.stats" for database in config["databases"] for tool in config["parameters"] for parameter in config["parameters"][tool]]
+		stats = [database +"/"+ tool +"_db/"+ parameter + "/" + tool + "_db.stats" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for parameter in config["run"][tool][database]]
 
 rule stats:
 	input: time = "{database}/{tool}_db/{parameters}/{tool}_db.time",
@@ -53,7 +53,7 @@ rule ganon:
 	log: "{database}/ganon_db/{parameters}/ganon_db.log"
 	threads: config["threads"]
 	#conda: srcdir("../envs/ganon.yaml") 
-	params: params = lambda wildcards: config["parameters"]["ganon"][wildcards.parameters],
+	params: params = lambda wildcards: config["run"]["ganon"][wildcards.database][wildcards.parameters],
 			dbprefix = "{database}/ganon_db/{parameters}/"
 	shell: "/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon build -d {params.dbprefix}ganon_db -i {input.fasta} -t {threads} --taxdump-file {input.nodes} {input.names} {input.merged} --seq-info-file {input.acc_len_taxid_assembly} {params.params} > {log} 2>&1"
 
@@ -99,7 +99,7 @@ rule krakenuniq:
 	log: "{database}/krakenuniq_db/{parameters}/krakenuniq_db.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/krakenuniq.yaml") 
-	params: params = lambda wildcards: config["parameters"]["krakenuniq"][wildcards.parameters],
+	params: params = lambda wildcards: config["run"]["krakenuniq"][wildcards.database][wildcards.parameters],
 			dbprefix = "{database}/krakenuniq_db/{parameters}/"
 	shell: 
 		"""
@@ -144,7 +144,7 @@ rule kraken:
 	log: "{database}/kraken_db/{parameters}/kraken_db.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/kraken.yaml") 
-	params: params = lambda wildcards: config["parameters"]["kraken"][wildcards.parameters],
+	params: params = lambda wildcards: config["run"]["kraken"][wildcards.database][wildcards.parameters],
 			dbprefix = "{database}/kraken_db/{parameters}/"
 	shell: 
 		"""
@@ -183,7 +183,7 @@ rule centrifuge:
 	log: "{database}/centrifuge_db/{parameters}/centrifuge_db.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/centrifuge.yaml") 
-	params: params = lambda wildcards: config["parameters"]["kraken"][wildcards.parameters],
+	params: params = lambda wildcards: config["run"]["centrifuge"][wildcards.database][wildcards.parameters],
 			dbprefix = "{database}/centrifuge_db/{parameters}/"
 	shell: 
 		"/usr/bin/time -v --output={output.time} {config[tools_path][centrifuge]}centrifuge-build -p {threads} {params.params} --taxonomy-tree {input.nodes} --name-table {input.names} --conversion-table {input.seqid2taxid} {input.fasta} {params.dbprefix}centrifuge_db > {log} 2>&1"

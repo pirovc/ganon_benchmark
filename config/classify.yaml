@@ -1,38 +1,42 @@
-workdir: "/home/user/databases/"
+workdir: "/path/" 
 threads: 24
 
-scripts_dir: "/home/user/scripts/"
-
-samples:
-  sample_name:
-    fq1: "/home/user/simulated.1.fq.gz"
-    fq2: ""
-    gt: "/home/user/simulated.gt.txt"
+scripts_dir: "/path/scripts/"
 
 tools_path:
-  ganon: ""
+  ganon: "/path/ganon/"
   krakenuniq: ""
   kraken: ""
   centrifuge: ""
 
-parameters:
-  ganon: 
-    e3u2f1: "-e 3 -u 2 -f 1"
-  krakenuniq:
-    default: ""
-  kraken:
-    default: ""
-  centrifuge:
-    default: ""
-    taxid: "taxid"
+samples:
+  sample_name1:
+    fq1: "/path/reads.1.fq.gz"
+    fq2: ""
+    gt: "/path/gt.txt"
 
 databases:
-  db_name:
-    nodes: "/home/users/files/nodes.dmp"
-    merged: "/home/users/files/merged.dmp"
-    acc_len_taxid_assembly: "/home/users/files/acc_len_taxid_assembly.txt"
-    prefix:
-      ganon: "/home/user/databases/ganon_db/default/"
-      krakenuniq: "/home/user/databases/krakenuniq_db/default/"
-      kraken: "/home/user/databases/kraken_db/default/"
-      centrifuge: "/home/user/databases/centrifuge_db/default/"
+  db_name1:
+    nodes: "/path/nodes.dmp"
+    merged: "/path/merged.dmp"
+    acc_len_taxid_assembly: "/path/acc_len_taxid_assembly.txt"
+
+run:
+  ganon:
+    db_name1:
+      config_name1:
+        prefix: "/path/db1/config1/"
+        parameters:
+          param_name1: "-a 1"
+          param_name2: "-a 2"
+      config_name2:
+        prefix: "/path/db1/config2/"
+        parameters:
+          param_name1: "-a 1"
+    db_name2:
+      config_name1:
+        prefix: "/path/db2/config1/"
+        parameters:
+          param_name1: "-a 1"
+
+
