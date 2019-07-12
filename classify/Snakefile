@@ -14,12 +14,13 @@ rule all:
 		stats = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".stats" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]]
 
 rule stats:
-	input: time = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.time"
+	input: time = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.time",
+			mbpm = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.mbpm"
 	output: stats = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.stats"
 	shell: 
 		"""
 		#######
-		# .stats: tool <tab> sample <tab> database <tab> dbconfig <tab> parameters <tab> time elapsed <tab> time seconds <tab> peak memory bytes
+		# .stats: tool <tab> sample <tab> database <tab> dbconfig <tab> parameters <tab> time elapsed <tab> time elapsed seconds <tab> Mbp/m <tab> peak memory bytes
 		######
 
 		# elapsed time
@@ -32,7 +33,10 @@ rule stats:
 		# peak memory in bytes
 		membytes=$((memkbytes*1000))
 
-		echo "{wildcards.tool}\t{wildcards.sample}\t{wildcards.database}\t{wildcards.dbconfig}\t{wildcards.parameters}\t${{timeelapsed}}\t${{timesec}}\t${{membytes}}" > {output.stats}
+		#Mbp/m
+		mbpm=$(cat {input.mbpm})
+
+		echo "{wildcards.tool}\t{wildcards.sample}\t{wildcards.database}\t{wildcards.dbconfig}\t{wildcards.parameters}\t${{timeelapsed}}\t${{timesec}}\t${{mbpm}}\t${{membytes}}" > {output.stats}
 		"""
 
 rule evaluation:
@@ -52,14 +56,20 @@ rule ganon:
 			lca="{database}/{sample}/ganon-{dbconfig}-{parameters}.lca",
 			rep="{database}/{sample}/ganon-{dbconfig}-{parameters}.rep",
 			tre="{database}/{sample}/ganon-{dbconfig}-{parameters}.tre",
-			time="{database}/{sample}/ganon-{dbconfig}-{parameters}.time"
+			time="{database}/{sample}/ganon-{dbconfig}-{parameters}.time",
+			mbpm="{database}/{sample}/ganon-{dbconfig}-{parameters}.mbpm"
 	log: "{database}/{sample}/ganon-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	#conda: srcdir("../envs/ganon.yaml")
 	params: outprefix = "{database}/{sample}/ganon-{dbconfig}-{parameters}",
 			input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
 			params = lambda wildcards: config["run"]["ganon"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters],
-	shell: "/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon classify --verbose -d {input.dbprefix}/ganon_db -r {input.fq1} -t {threads} {params.params} -o {params.outprefix} > {log} 2>&1"
+	shell: 
+		"""
+		/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon classify --verbose -d {input.dbprefix}/ganon_db -r {input.fq1} -t {threads} {params.params} -o {params.outprefix} > {log} 2>&1
+
+		grep "ganon-classify processed " {log} | grep -o "[0-9.]* Mbp/m" | sed 's/ Mbp\\/m//g' > {output.mbpm}
+		"""
 
 rule ganon_format:
 	input: lca="{database}/{sample}/ganon-{dbconfig}-{parameters}.lca",
@@ -80,13 +90,19 @@ rule krakenuniq:
 			dbprefix = lambda wildcards: os.path.abspath(config["run"]["krakenuniq"][wildcards.database][wildcards.dbconfig]["prefix"])
 	output: res = "{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.res",
 			report = "{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.report",
-			time="{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.time"
+			time="{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.time",
+			mbpm="{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.mbpm"
 	log: "{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/krakenuniq.yaml")
 	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
 			params = lambda wildcards: config["run"]["krakenuniq"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
-	shell: "/usr/bin/time -v --output={output.time} {config[tools_path][krakenuniq]}krakenuniq --db {input.dbprefix} --threads {threads} --output {output.res} --only-classified-output --fastq-input --gzip-compressed --report-file {output.report} {params.params} {input.fq1} > {log} 2>&1"
+	shell: 
+		"""
+		/usr/bin/time -v --output={output.time} {config[tools_path][krakenuniq]}krakenuniq --db {input.dbprefix} --threads {threads} --output {output.res} --only-classified-output --fastq-input --gzip-compressed --report-file {output.report} {params.params} {input.fq1} > {log} 2>&1
+
+		grep " processed in " {log} | grep -o "[0-9.]* Mbp/m" | sed 's/ Mbp\\/m//g' > {output.mbpm}
+		"""
 
 rule krakenuniq_format:
 	input: res = "{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.res",
@@ -105,13 +121,19 @@ rule kraken:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
 			dbprefix = lambda wildcards: os.path.abspath(config["run"]["kraken"][wildcards.database][wildcards.dbconfig]["prefix"])
 	output: res = "{database}/{sample}/kraken-{dbconfig}-{parameters}.res",
-			time = "{database}/{sample}/kraken-{dbconfig}-{parameters}.time"
+			time = "{database}/{sample}/kraken-{dbconfig}-{parameters}.time",
+			mbpm="{database}/{sample}/kraken-{dbconfig}-{parameters}.mbpm"
 	log: "{database}/{sample}/kraken-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/kraken.yaml")
 	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
 			params = lambda wildcards: config["run"]["kraken"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
-	shell: "/usr/bin/time -v --output={output.time} {config[tools_path][kraken]}kraken --db {input.dbprefix} --threads {threads} --output {output.res} --only-classified-output --fastq-input --gzip-compressed {params.params} {input.fq1} > {log} 2>&1"
+	shell: 
+		"""
+		/usr/bin/time -v --output={output.time} {config[tools_path][kraken]}kraken --db {input.dbprefix} --threads {threads} --output {output.res} --only-classified-output --fastq-input --gzip-compressed {params.params} {input.fq1} > {log} 2>&1
+
+		grep " processed in " {log} | grep -o "[0-9.]* Mbp/m" | sed 's/ Mbp\\/m//g' > {output.mbpm}
+		"""
 
 rule kraken_format:
 	input: res = "{database}/{sample}/kraken-{dbconfig}-{parameters}.res"
@@ -125,13 +147,19 @@ rule centrifuge:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
 			dbprefix = lambda wildcards: os.path.abspath(config["run"]["centrifuge"][wildcards.database][wildcards.dbconfig]["prefix"])
 	output: res = "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.res",
-			time = "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.time"
+			time = "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.time",
+			mbpm="{database}/{sample}/centrifuge-{dbconfig}-{parameters}.mbpm"
 	log: "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/centrifuge.yaml")
 	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
 			params = lambda wildcards: config["run"]["centrifuge"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
-	shell: "/usr/bin/time -v --output={output.time} {config[tools_path][centrifuge]}centrifuge -t -x {input.dbprefix}/centrifuge_db -U {input.fq1} --threads {threads} -S {output.res} --report-file /dev/null > {log} 2>&1"
+	shell: 
+		"""
+		/usr/bin/time -v --output={output.time} {config[tools_path][centrifuge]}centrifuge -t -x {input.dbprefix}/centrifuge_db -U {input.fq1} --threads {threads} -S {output.res} --report-file /dev/null > {log} 2>&1
+
+		grep -oP "(?<=Time searching: ).*" {log} | awk '{{split($0,a,":");sec=(a[1]*3600)+(a[2]*60)+a[3]; print "*"sec"*"}}' > {output.mbpm}
+		"""
 
 rule centrifuge_format:
 	input: res= "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.res",
