@@ -57,10 +57,10 @@ rule ganon:
 			rep="{database}/{sample}/ganon-{dbconfig}-{parameters}.rep",
 			tre="{database}/{sample}/ganon-{dbconfig}-{parameters}.tre",
 			time="{database}/{sample}/ganon-{dbconfig}-{parameters}.time",
-			mbpm="{database}/{sample}/ganon-{dbconfig}-{parameters}.mbpm"
+			mbpm=temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.mbpm")
 	log: "{database}/{sample}/ganon-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
-	#conda: srcdir("../envs/ganon.yaml")
+	conda: srcdir("../envs/ganon.yaml")
 	params: outprefix = "{database}/{sample}/ganon-{dbconfig}-{parameters}",
 			input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
 			params = lambda wildcards: config["run"]["ganon"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters],
@@ -91,7 +91,7 @@ rule krakenuniq:
 	output: res = "{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.res",
 			report = "{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.report",
 			time="{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.time",
-			mbpm="{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.mbpm"
+			mbpm=temp("{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.mbpm")
 	log: "{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/krakenuniq.yaml")
@@ -122,7 +122,7 @@ rule kraken:
 			dbprefix = lambda wildcards: os.path.abspath(config["run"]["kraken"][wildcards.database][wildcards.dbconfig]["prefix"])
 	output: res = "{database}/{sample}/kraken-{dbconfig}-{parameters}.res",
 			time = "{database}/{sample}/kraken-{dbconfig}-{parameters}.time",
-			mbpm="{database}/{sample}/kraken-{dbconfig}-{parameters}.mbpm"
+			mbpm=temp("{database}/{sample}/kraken-{dbconfig}-{parameters}.mbpm")
 	log: "{database}/{sample}/kraken-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/kraken.yaml")
@@ -148,7 +148,7 @@ rule centrifuge:
 			dbprefix = lambda wildcards: os.path.abspath(config["run"]["centrifuge"][wildcards.database][wildcards.dbconfig]["prefix"])
 	output: res = "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.res",
 			time = "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.time",
-			mbpm="{database}/{sample}/centrifuge-{dbconfig}-{parameters}.mbpm"
+			mbpm=temp("{database}/{sample}/centrifuge-{dbconfig}-{parameters}.mbpm")
 	log: "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/centrifuge.yaml")
@@ -187,7 +187,7 @@ rule diamond:
 			dbprefix = lambda wildcards: os.path.abspath(config["run"]["diamond"][wildcards.database][wildcards.dbconfig]["prefix"])
 	output: res = "{database}/{sample}/diamond-{dbconfig}-{parameters}.res",
 			time = "{database}/{sample}/diamond-{dbconfig}-{parameters}.time",
-			mbpm="{database}/{sample}/diamond-{dbconfig}-{parameters}.mbpm"
+			mbpm=temp("{database}/{sample}/diamond-{dbconfig}-{parameters}.mbpm")
 	log: "{database}/{sample}/diamond-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/diamond.yaml")
