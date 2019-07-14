@@ -52,7 +52,7 @@ rule ganon:
 			time="{database}/ganon_db/{parameters}/ganon_db.time",
 	log: "{database}/ganon_db/{parameters}/ganon_db.log"
 	threads: config["threads"]
-	#conda: srcdir("../envs/ganon.yaml") 
+	conda: srcdir("../envs/ganon.yaml") 
 	params: params = lambda wildcards: config["run"]["ganon"][wildcards.database][wildcards.parameters],
 			dbprefix = "{database}/ganon_db/{parameters}/"
 	shell: "/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon build -d {params.dbprefix}ganon_db -i {input.fasta} -t {threads} --taxdump-file {input.nodes} {input.names} {input.merged} --seq-info-file {input.acc_len_taxid_assembly} {params.params} > {log} 2>&1"
@@ -201,7 +201,7 @@ rule diamond_prepare:
 	shell: 
 		"""
 		mkdir -p {params.dbprefix}
-		curl -L -o {output.accession2taxid}  ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/accession2taxid/prot.accession2taxid.gz
+		curl -L --silent -o {output.accession2taxid}  ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/accession2taxid/prot.accession2taxid.gz
 		"""
 
 rule diamond:

@@ -1,4 +1,6 @@
 channels:
+ - defaults
  - bioconda
+ - conda-forge
 dependencies:
  - krakenuniq=0.5.5
