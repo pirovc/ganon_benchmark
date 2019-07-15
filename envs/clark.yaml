@@ -1,0 +1,6 @@
+channels:
+ - defaults
+ - bioconda
+ - conda-forge
+dependencies:
+ - clark=1.2.5

@@ -9,6 +9,7 @@ tools_path:
   kraken: ""
   centrifuge: ""
   diamond: ""
+  clark: ""
 
 samples:
   sample_name1:

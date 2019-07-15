@@ -7,7 +7,7 @@ onsuccess:
 onerror:
 	remove_clusterlog()
 
-localrules: all, ganon_check, krakenuniq_prepare, krakenuniq_check, kraken_prepare, kraken_check, centrifuge_prepare, centrifuge_check, diamond_prepare, diamond_check, stats
+localrules: all, ganon_check, krakenuniq_prepare, krakenuniq_check, kraken_prepare, kraken_check, centrifuge_prepare, centrifuge_check, diamond_prepare, diamond_check, clark_prepare, clark_check, stats
 
 rule all:
 	input:
@@ -222,3 +222,83 @@ rule diamond_check:
 	output: "{database}/diamond_db/{parameters}/diamond_db.check"
 	shell: "du --block-size=1 {input} > {output}"#output in bytes
 
+
+rule clark_prepare:
+	input: 	fasta = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["fasta"]),
+			nodes = lambda wildcards: config["databases"][wildcards.database]["nodes"],
+			merged = lambda wildcards: config["databases"][wildcards.database]["merged"],
+			names = lambda wildcards: config["databases"][wildcards.database]["names"],
+			acc_len_taxid_assembly = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["acc_len_taxid_assembly"])
+	output: seq_folder = temp(directory("{database}/clark_db/{parameters}/Custom/")),
+			nodes = temp("{database}/clark_db/{parameters}/taxonomy/nodes.dmp"),
+			names = temp("{database}/clark_db/{parameters}/taxonomy/names.dmp"),
+			merged = temp("{database}/clark_db/{parameters}/taxonomy/merged.dmp"),
+			nucl_accss = temp("{database}/clark_db/{parameters}/taxonomy/nucl_accss"),
+			taxondata = temp(touch("{database}/clark_db/{parameters}/.taxondata")),
+			dummy_file = temp("{database}/clark_db/{parameters}/dummy_file.fq")
+	params: dbprefix = "{database}/clark_db/{parameters}/"
+	shell:
+		"""
+		# Emulate the script: opt/clark/download_taxondata.sh 
+		mkdir -p {params.dbprefix}/taxonomy/
+		mkdir -p {params.dbprefix}/Custom/
+
+		# split fasta into single sequences:
+		awk -v seq_folder='{output.seq_folder}' '{{if (substr($0, 1, 1)==">") {{filename=(seq_folder "/" substr($1,2) ".fna")}}; print $0 > filename}}' {input.fasta}
+
+		# simulate .accession2taxid files
+		awk -F "\\t" 'BEGIN {{FS="\\t";OFS="\\t"; print "accession","accession.version","taxid","gi"}}{{ if($1!="na"){{ split($1,acc,"."); print acc[1],$1,$3,"0" }}}}' {input.acc_len_taxid_assembly} > {output.nucl_accss}
+
+		# link taxdump files
+		ln -sf {input.nodes} {output.nodes} # link because just use for building
+		ln -sf {input.names} {output.names}  # link because just use for building
+		ln -sf {input.merged} {output.merged} # link because just use for building
+
+		# generate dummy fastq
+		printf "@read1\nTCTCAGTTATTAGAAATTCAATCCGATTTAGGACGACTAGGCATTTCAAT\n+\n@CBFFF@FFH8HHFIBJIJJJ?CIJGEJJIC)EIIADIJHG(D-DJA&EJ\n@read2\nGCTTCTACTACGGGCTGACGGCGTTAGCGTGCGCATGGTACTTCCGCAAC\n+\nC=C<FFFFHHDHGJ?HIJ<H;JDII)EIHJEGJ@GIIGHIJIIEEIIIHJ" > {output.dummy_file}		
+		"""  
+
+rule clark:
+ 	input: seq_folder = "{database}/clark_db/{parameters}/Custom/",
+			nodes = "{database}/clark_db/{parameters}/taxonomy/nodes.dmp",
+			names = "{database}/clark_db/{parameters}/taxonomy/names.dmp",
+			merged = "{database}/clark_db/{parameters}/taxonomy/merged.dmp",
+			nucl_accss = "{database}/clark_db/{parameters}/taxonomy/nucl_accss",
+			taxondata = "{database}/clark_db/{parameters}/.taxondata",
+			dummy_file = "{database}/clark_db/{parameters}/dummy_file.fq"
+	output: db_folder = directory("{database}/clark_db/{parameters}/custom_0/"), # Use custom_0/ as input because db output files have variable names
+			targets = "{database}/clark_db/{parameters}/targets.txt",
+			dummy_out = temp("{database}/clark_db/{parameters}/dummy_out.csv"),
+			time="{database}/clark_db/{parameters}/clark_db.time"
+	log: "{database}/clark_db/{parameters}/clark_db.log"
+	threads: config["threads"]
+	conda: srcdir("../envs/clark.yaml") 
+	params: params = lambda wildcards: config["run"]["clark"][wildcards.database][wildcards.parameters],
+			dbprefix = "{database}/clark_db/{parameters}/"
+	shell: 
+		"""
+		# The script should be on set_targets.sh script folder (ENV/opt/clark/) to generate the database 
+		# with correct paths. If there's no alternative path set, get current environment path 
+		if [[ "{config[tools_path][clark]}" != "" ]]; then clark_opt_path="{config[tools_path][clark]}"; else clark_opt_path="${{PATH%%/bin:*}}/opt/clark/"; fi
+		# store current path
+		current_path=$(pwd)
+		# Get absolute paths in case they are relative
+		touch {log}
+		abs_log=$(readlink -e {log})
+		abs_dbprefix=$(readlink -e {params.dbprefix})
+
+		# run set_targets and dummy to generate db
+		/usr/bin/time -v --output={output.time} bash -c "
+		cd ${{clark_opt_path}};
+		./set_targets.sh ${{abs_dbprefix}}/ custom > ${{abs_log}} 2>&1;
+		cd ${{current_path}};
+		{config[tools_path][clark]}CLARK -T {output.targets} -D {params.dbprefix}/custom_0/ -O {input.dummy_file} -R {params.dbprefix}/dummy_out -n {threads} >> {log} 2>&1;
+		"
+		rm -rfv {params.dbprefix}.custom {params.dbprefix}.custom.fileToAccssnTaxID {params.dbprefix}.custom.fileToTaxIDs {params.dbprefix}.tmp {params.dbprefix}taxonomy/ >> {log} 2>&1
+		"""	
+
+rule clark_check:
+	input: db=directory("{database}/clark_db/{parameters}/custom_0/"),
+			targets="{database}/clark_db/{parameters}/targets.txt"
+	output: "{database}/clark_db/{parameters}/clark_db.check"
+	shell: "du --block-size=1 {input} > {output}"#output in bytes

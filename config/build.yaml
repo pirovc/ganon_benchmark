@@ -6,6 +6,7 @@ tools_path:
   kraken: ""
   centrifuge: ""
   diamond: ""
+  clark: ""
 
 databases:
   db_name1: 

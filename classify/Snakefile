@@ -156,7 +156,7 @@ rule centrifuge:
 			params = lambda wildcards: config["run"]["centrifuge"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
 	shell: 
 		"""
-		/usr/bin/time -v --output={output.time} {config[tools_path][centrifuge]}centrifuge -t -x {input.dbprefix}/centrifuge_db -U {input.fq1} --threads {threads} -S {output.res} --report-file /dev/null > {log} 2>&1
+		/usr/bin/time -v --output={output.time} {config[tools_path][centrifuge]}centrifuge -t -x {input.dbprefix}/centrifuge_db -U {input.fq1} --threads {threads} -S {output.res} --report-file /dev/null {params.params} > {log} 2>&1
 
 		grep -oP "(?<=Time searching: ).*" {log} | awk '{{split($0,a,":");sec=(a[1]*3600)+(a[2]*60)+a[3]; print "*"sec"*"}}' > {output.mbpm}
 		"""
@@ -195,7 +195,7 @@ rule diamond:
 			params = lambda wildcards: config["run"]["diamond"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
 	shell: 
 		"""
-		/usr/bin/time -v --output={output.time} {config[tools_path][diamond]}diamond blastx --db {input.dbprefix}/diamond_db --query {input.fq1} --out {output.res} --outfmt 102 --threads {threads} > {log} 2>&1
+		/usr/bin/time -v --output={output.time} {config[tools_path][diamond]}diamond blastx --db {input.dbprefix}/diamond_db --query {input.fq1} --out {output.res} --outfmt 102 --threads {threads} {params.params} > {log} 2>&1
 
 		grep -oP "(?<=Total time \\= ).*" {log} | awk '{{print "*"substr($1, 1, length($1)-1)"*"}}' > {output.mbpm}
 		"""
@@ -206,4 +206,36 @@ rule diamond_format:
 	shell:
 		"""
 		awk 'FS="\\t"{{if($2!="0"){{print $1"\\t0\\t"$2;}} }}' {input.res} | gzip > {output}
+		"""
+
+
+rule clark:
+	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
+			dbprefix = lambda wildcards: os.path.abspath(config["run"]["clark"][wildcards.database][wildcards.dbconfig]["prefix"])
+	output: csv = "{database}/{sample}/clark-{dbconfig}-{parameters}.csv",
+			fq1 = temp("{database}/{sample}/clark-{dbconfig}-{parameters}.fq"),
+			time = "{database}/{sample}/clark-{dbconfig}-{parameters}.time",
+			mbpm=temp("{database}/{sample}/clark-{dbconfig}-{parameters}.mbpm")
+	log: "{database}/{sample}/clark-{dbconfig}-{parameters}.log"
+	threads: config["threads"]
+	conda: srcdir("../envs/clark.yaml")
+	params: outprefix = "{database}/{sample}/clark-{dbconfig}-{parameters}",
+			input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
+			params = lambda wildcards: config["run"]["clark"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
+	shell: 
+		"""
+		/usr/bin/time -v --output={output.time} bash -c "
+		gzip -d -c {input.fq1} > {output.fq1};
+		{config[tools_path][clark]}CLARK -T {input.dbprefix}/targets.txt -D {input.dbprefix}/custom_0/ -R {params.outprefix} -O {output.fq1} -n {threads} {params.params} > {log} 2>&1;
+		"
+
+		grep -oP "(?<= - Assignment time\: )[^s]*" {log} | awk '{{print "*"$1"*"}}' > {output.mbpm}
+		"""
+
+rule clark_format:
+	input: csv = "{database}/{sample}/clark-{dbconfig}-{parameters}.csv",
+	output: "{database}/{sample}/clark-{dbconfig}-{parameters}.out.gz"
+	shell:
+		"""
+		awk 'FS=","{{if(NR>=2 && $3!="NA") print $1"\\t0\\t"$3;}}' {input.csv} | gzip > {output}
 		"""
