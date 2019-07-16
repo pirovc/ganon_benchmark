@@ -3,4 +3,4 @@ channels:
  - bioconda
  - conda-forge
 dependencies:
- - ganon=0.1.2
+ - ganon=0.1.3

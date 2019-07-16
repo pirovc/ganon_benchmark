@@ -11,6 +11,7 @@ rule all:
 	input:
 		npzs = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".npz" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
 		evals = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".eval" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
+		assembly = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".assembly" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
 		stats = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".stats" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]]
 
 rule stats:
@@ -46,8 +47,9 @@ rule evaluation:
 			merged = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["merged"]),
 			acc_len_taxid_assembly = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["acc_len_taxid_assembly"])
 	output: ev = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.eval",
+			assembly = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.assembly",
 			npz = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.npz"
-	shell: "python3 {config[scripts_dir]}eval.py {input.nodes} {input.merged} {input.acc_len_taxid_assembly} {input.gt} {input.results} {output.npz} > {output.ev}"
+	shell: "python3 {config[scripts_dir]}eval.py -r {input.results} -g  {input.gt} -d {input.acc_len_taxid_assembly} -n {input.nodes} -m {input.merged} -z {output.npz} -o {output.ev} -a {output.assembly}"
 
 rule ganon:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),

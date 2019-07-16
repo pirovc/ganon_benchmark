@@ -298,7 +298,7 @@ rule clark:
 		"""	
 
 rule clark_check:
-	input: db=directory("{database}/clark_db/{parameters}/custom_0/"),
+	input: db="{database}/clark_db/{parameters}/custom_0/",
 			targets="{database}/clark_db/{parameters}/targets.txt"
 	output: "{database}/clark_db/{parameters}/clark_db.check"
 	shell: "du --block-size=1 {input} > {output}"#output in bytes
