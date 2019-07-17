@@ -9,7 +9,7 @@ def main():
 	parser = argparse.ArgumentParser(prog='ganon benchmark evaluation', conflict_handler="resolve", add_help=True)
 	parser.add_argument('-k', metavar='<ranks>', 					required=False, dest="ranks", 		 			type=str, nargs="*", default="", help="Evaluated ranks. Default: 'superkingdom' 'phylum' 'class' 'order' 'family' 'genus' 'species' 'species+'")
 	parser.add_argument('-i', metavar='<input_results>', 			required=True,  dest="input_results",  			type=str, help="readid <tab> assembly id (or 0) <tab> taxid")
-	parser.add_argument('-g', metavar='<input_ground_truth>', 		required=True,  dest="input_ground_truth",  	type=str, help="readid <tab> taxid <tab> assembly id (or 0)")
+	parser.add_argument('-g', metavar='<input_ground_truth>', 		required=True,  dest="input_ground_truth",  	type=str, help="readid <tab> assembly id (or 0) <tab> taxid")
 	parser.add_argument('-d', metavar='<input_database_profile>',	required=True,  dest="input_database_profile", 	type=str, help="accession id <tab> seq. length <tab> taxid [<tab> assembly id]")
 	parser.add_argument('-n', metavar='<input_nodes>', 				required=True,  dest="input_nodes",  			type=str, help="nodes.dmp - all input taxids will be normalized by this version")
 	parser.add_argument('-m', metavar='<input_merged>', 			required=True,  dest="input_merged",  			type=str, help="merged.dmp - all input taxids will be normalized by this version")
@@ -46,15 +46,16 @@ def main():
 		output_tab_rank = None
 	output_npz_rank = open(args.output_npz_rank,'wb') if args.output_npz_rank else None
 
-	# Ground truth: readid <tab> taxid <tab> assembly
+	# Ground truth: readid <tab> assembly <tab> taxid
 	gt = defaultdict(tuple)
 	gt_leaf_taxids = set()
 	for line in gzip.open(gt_file, 'rt') if gt_file.endswith(".gz") else open(gt_file,'r'):
+		if line[0]=="@": continue
 		fields = line.rstrip().split("\t") 
-		taxid = check_taxid(fields[1], gt_file, nodes, merged)
+		taxid = check_taxid(fields[2], gt_file, nodes, merged)
 		if taxid is None: continue # taxid not found
 		readid = fields[0]
-		assembly = fields[2]
+		assembly = fields[1]
 		gt_leaf_taxids.add(taxid)
 		gt[readid] = (assembly, taxid)
 
@@ -62,6 +63,7 @@ def main():
 	db_assembly = set() # store all assemblies db
 	db_leaf_taxids = set() # store all leaf taxids
 	for line in gzip.open(db_file, 'rt') if db_file.endswith(".gz") else open(db_file,'r'):
+		if line[0]=="@": continue
 		fields = line.rstrip().split("\t")
 		taxid = check_taxid(fields[2], db_file, nodes, merged)
 		if taxid is None: continue # taxid not found
@@ -80,10 +82,11 @@ def main():
 	res = defaultdict(tuple)
 	res_leaf_taxids = set()
 	for line in gzip.open(res_file, 'rt') if res_file.endswith(".gz") else open(res_file,'r'):
+		if line[0]=="@": continue
 		fields = line.rstrip().split("\t")
 		taxid = check_taxid(fields[2], res_file, nodes, merged)
 		if taxid is None: continue # taxid not found
-		readid = fields[0].split("/")[0]
+		readid = fields[0]
 		assembly = fields[1]
 		res_leaf_taxids.add(taxid)
 		res[readid] = (assembly, taxid)
@@ -106,7 +109,7 @@ def main():
 		rank_gttaxid = {}
 		for leaf_gttaxid in gt_leaf_taxids:
 			t = leaf_gttaxid
-			if not rank_gttaxid.get(leaf_gttaxid): # if not yet found
+			if not rank_gttaxid.get(leaf_gttaxid): # if not yet calculated
 				while t!="0":
 					if t in db_taxids:
 						rank_gttaxid[leaf_gttaxid], _ = rank_up_to(t, nodes, ranks, fixed_ranks)
@@ -304,7 +307,6 @@ def rank_eval(res, gt, nodes, ranks, fixed_ranks, db_assembly, db_taxids, output
 	taxid_lineage = defaultdict(lambda: ['']*len(fixed_ranks))
 
 	for readid, (gt_assembly, gt_taxid) in gt.items():
-
 
 		# Check if there's assembly id on ground truth and account for it
 		if gt_assembly!="0":

@@ -13,7 +13,8 @@ rule all:
 		cumu_npz = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".cumu.npz" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
 		rank_tsv = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".rank.tsv" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
 		rank_npz = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".rank.npz" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
-		stats = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".stats" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]]
+		stats = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".stats" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
+		amber_outdir = [database +"/"+ sample +"/amber/" for tool in config["run"] for database in config["run"][tool] for sample in config["samples"]]
 
 rule stats:
 	input: time = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.time",
@@ -41,6 +42,40 @@ rule stats:
 		echo "{wildcards.tool}\t{wildcards.sample}\t{wildcards.database}\t{wildcards.dbconfig}\t{wildcards.parameters}\t${{timeelapsed}}\t${{timesec}}\t${{mbpm}}\t${{membytes}}" > {output.stats}
 		"""
 
+rule amber:
+	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
+			results = lambda wildcards: [wildcards.database +"/"+ wildcards.sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".out.gz" for tool in config["run"] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]],
+			gt = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["gt"]),
+			nodes = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["nodes"])
+	output: gt_bioboxes = temp("{database}/{sample}/gt.bioboxes.txt"),
+			amber_outdir = directory("{database}/{sample}/amber/")
+	log: "{database}/{sample}/amber.log"
+	params: tools_labels = lambda wildcards: ",".join([tool +"-"+ dbconfig +"-"+ parameter for tool in config["run"] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]]),
+			results_tmp = lambda wildcards: [wildcards.database +"/"+ wildcards.sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".amber" for tool in config["run"] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]],
+	conda: srcdir("../envs/amber.yaml")
+	shell: 
+		"""
+		mkdir -p {output.amber_outdir}
+
+		# bioboxes header
+		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n\\n@@SEQUENCEID\\tBINID\\tTAXID\\t_LENGTH\\n" > {output.gt_bioboxes}
+
+		# get read lenghts
+		join <(sort -k 1,1 {input.gt}) <(zcat {input.fq1} | sed -n '1~4p;2~4p' | paste - - | awk 'FS="\\t"{{print substr($1,2,length($1)-3)"\\t"length($2)}}' | sort -k 1,1) -t$'\\t' -o "1.1,1.2,1.3,2.2" >> {output.gt_bioboxes}
+	
+		# ambers just accepts plain text
+		for file in {input.results}
+		do
+		    gzip -d -c ${{file}} > ${{file%.out.gz}}.amber
+		done
+
+		# run amber
+		{config[amber_dir]}/amber.py -g {output.gt_bioboxes} --ncbi_nodes_file {input.nodes} --output_dir {output.amber_outdir} -l {params.tools_labels} {params.results_tmp} >> {log} 2>&1
+
+		# remove temp files
+		rm {params.results_tmp}
+		"""
+
 rule evaluation:
 	input: results = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.out.gz",
 			gt = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["gt"]),
@@ -51,7 +86,8 @@ rule evaluation:
 			cumu_npz = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.cumu.npz",
 			rank_tsv = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.rank.tsv",
 			rank_npz = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.rank.npz"
-	shell: "python3 {config[scripts_dir]}eval.py -i {input.results} -g  {input.gt} -d {input.acc_len_taxid_assembly} -n {input.nodes} -m {input.merged} --output-tab-cumulative {output.cumu_tsv} --output-npz-cumulative {output.cumu_npz} --output-tab-rank {output.rank_tsv} --output-npz-rank {output.rank_npz}"
+	log: "{database}/{sample}/{tool}-{dbconfig}-{parameters}.eval.log"
+	shell: "python3 {config[scripts_dir]}eval.py -i {input.results} -g  {input.gt} -d {input.acc_len_taxid_assembly} -n {input.nodes} -m {input.merged} --output-tab-cumulative {output.cumu_tsv} --output-npz-cumulative {output.cumu_npz} --output-tab-rank {output.rank_tsv} --output-npz-rank {output.rank_npz} > {log} 2>&1"
 
 rule ganon:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
@@ -81,12 +117,14 @@ rule ganon_format:
 	output: "{database}/{sample}/ganon-{dbconfig}-{parameters}.out.gz"
 	shell: 
 		"""
-		# if numeric (taxid) or assembly
-		awk 'FS="\\t"{{if($2 ~ /^[0-9]+$/){{print $1"\\t0\\t"$2}}}}' {input.lca} | gzip > {output}
+		# bioboxes header
+		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" | gzip > {output}
 		
-
-		######## RE-CHECK #####
-		join -1 2 -2 2 <(awk 'FS="\\t"{{if( $2 !~ /^[0-9]+$/){{print $0}}}}' {input.lca} | sort -k 2,2) <(cut -f 3,4 {input.dbprefix}/ganon_db.bins | sort | uniq | sort -k 2,2) -t$'\\t' -o "1.1,1.2,2.1" | gzip >> {output}
+		# if numeric (taxid) or assembly
+		awk 'FS="\\t"{{if($2 ~ /^[0-9]+$/){{print substr($1,1,length($1)-2)"\\t0\\t"$2}}}}' {input.lca} | gzip >> {output}
+		
+		# get taxid if classified at assembly level
+		join -1 2 -2 2 <(awk 'FS="\\t"{{if( $2 !~ /^[0-9]+$/){{print substr($1,1,length($1)-2)"\\t"$2"\\t"$3}}}}' {input.lca} | sort -k 2,2) <(cut -f 3,4 {input.dbprefix}/ganon_db.bins | sort | uniq | sort -k 2,2) -t$'\\t' -o "1.1,1.2,2.1" | gzip >> {output}
 		"""
 
 rule krakenuniq:
@@ -114,11 +152,14 @@ rule krakenuniq_format:
 	output: "{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.out.gz"
 	shell:
 		"""
+		# bioboxes header
+		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" | gzip > {output}
+	
 		# get assembly assignemnts:
-		join -1 3 -2 1 <(grep "^C" {input.res} | awk 'FS="\\t"{{if($3>=1000000000) print $0}}' | sort -k 3,3) <(sort -k 1,1 {input.dbprefix}/taxDB) -t$'\\t' -o "1.2,2.3,2.2" | gzip > {output}
+		join -1 2 -2 1 <(grep "^C" {input.res} | awk 'FS="\\t"{{if($3>=1000000000) print substr($2,1,length($2)-2)"\\t"$3}}' | sort -k 2,2) <(sort -k 1,1 {input.dbprefix}/taxDB) -t$'\\t' -o "1.1,2.3,2.2" | gzip >> {output}
 
 		# append taxid only assignments:
-		grep "^C" {input.res} | awk 'FS="\\t"{{if($3<1000000000) print $2"\\t0\\t"$3}}' | gzip >> {output}
+		grep "^C" {input.res} | awk 'FS="\\t"{{if($3<1000000000) print substr($2,1,length($2)-2)"\\t0\\t"$3}}' | gzip >> {output}
 		"""
 
 rule kraken:
@@ -144,7 +185,10 @@ rule kraken_format:
 	output: "{database}/{sample}/kraken-{dbconfig}-{parameters}.out.gz"
 	shell:
 		"""
-		grep "^C" {input.res} | awk 'FS="\\t"{{print $2"\\t0\\t"$3}}' | gzip > {output}
+		# bioboxes header
+		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" | gzip > {output}
+
+		grep "^C" {input.res} | awk 'FS="\\t"{{print substr($2,1,length($2)-2)"\\t0\\t"$3}}' | gzip >> {output}
 		"""
 
 rule centrifuge:
@@ -173,16 +217,20 @@ rule centrifuge_format:
 			final = "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.out.gz"
 	params: params = lambda wildcards: config["run"]["centrifuge"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
 	shell: 
-		"""		
+		"""
 		# group results by taxid
 		if [ "{params.params}" = "taxid" ]; then
-			awk -F"\\t" 'NR>1 {{if($2 != "unclassified" && $3 != "0"){{print $1"\t0\t"$3}}}}' {input.res} | sort | uniq > {output.parsed}
+			awk -F"\\t" 'NR>1 {{if($2 != "unclassified" && $3 != "0"){{print $1"\\t0\\t"$3}}}}' {input.res} | sort | uniq > {output.parsed}
 		else
 			awk -F"\\t" -v acc_len_taxid_assembly="{input.acc_len_taxid_assembly}" '
 			BEGIN{{while (getline < acc_len_taxid_assembly){{acc2assembly[$1]=$4;}}; close(acc_len_taxid_assembly)}} 
-			NR>1 {{if($2 != "unclassified" && $3 != "0"){{a=($2 in acc2assembly)?acc2assembly[$2]:"0";print $1"\t"a"\t"$3}}}}' {input.res} | sort | uniq > {output.parsed}
+			NR>1 {{if($2 != "unclassified" && $3 != "0"){{a=($2 in acc2assembly)?acc2assembly[$2]:"0";print $1"\\t"a"\\t"$3}}}}' {input.res} | sort | uniq > {output.parsed}
 		fi
-		python3 {config[scripts_dir]}/centrifuge_lca.py {output.parsed} {input.nodes} | gzip > {output.final}
+
+		# bioboxes header
+		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" | gzip > {output.final}
+
+		python3 {config[scripts_dir]}/centrifuge_lca.py {output.parsed} {input.nodes} | gzip >> {output.final}
 		"""
 
 
@@ -209,7 +257,10 @@ rule diamond_format:
 	output: "{database}/{sample}/diamond-{dbconfig}-{parameters}.out.gz"
 	shell:
 		"""
-		awk 'FS="\\t"{{if($2!="0"){{print $1"\\t0\\t"$2;}} }}' {input.res} | gzip > {output}
+		# bioboxes header
+		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" | gzip > {output}
+
+		awk 'FS="\\t"{{if($2!="0"){{print substr($1,1,length($1)-2)"\\t0\\t"$2;}} }}' {input.res} | gzip >> {output}
 		"""
 
 
@@ -241,5 +292,8 @@ rule clark_format:
 	output: "{database}/{sample}/clark-{dbconfig}-{parameters}.out.gz"
 	shell:
 		"""
-		awk 'FS=","{{if(NR>=2 && $3!="NA") print $1"\\t0\\t"$3;}}' {input.csv} | gzip > {output}
+		# bioboxes header
+		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" | gzip > {output}
+
+		awk 'FS=","{{if(NR>=2 && $3!="NA") print substr($1,1,length($1)-2)"\\t0\\t"$3;}}' {input.csv} | gzip >> {output}
 		"""
