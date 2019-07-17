@@ -9,10 +9,10 @@ onerror:
 
 rule all:
 	input:
-		npzs = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".npz" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
-		npzs_rank = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".npz_rank" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
-		evals = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".eval" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
-		evals_rank = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".eval_rank" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
+		cumu_tsv = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".cumu.tsv" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
+		cumu_npz = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".cumu.npz" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
+		rank_tsv = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".rank.tsv" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
+		rank_npz = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".rank.npz" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
 		stats = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".stats" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]]
 
 rule stats:
@@ -47,20 +47,11 @@ rule evaluation:
 			nodes = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["nodes"]),
 			merged = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["merged"]),
 			acc_len_taxid_assembly = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["acc_len_taxid_assembly"])
-	output: ev = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.eval",
-			npz = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.npz"
-	shell: "python3 {config[scripts_dir]}eval.py -r {input.results} -g  {input.gt} -d {input.acc_len_taxid_assembly} -n {input.nodes} -m {input.merged} -z {output.npz} -o {output.ev}"
-
-rule evaluation_rank:
-	input: results = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.out.gz",
-			gt = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["gt"]),
-			nodes = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["nodes"]),
-			merged = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["merged"]),
-			acc_len_taxid_assembly = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["acc_len_taxid_assembly"])
-	output: ev_rank = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.eval_rank",
-			npz = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.npz_rank"
-	shell: "python3 {config[scripts_dir]}eval_rank.py -r {input.results} -g  {input.gt} -d {input.acc_len_taxid_assembly} -n {input.nodes} -m {input.merged} -z {output.npz} -o {output.ev_rank}"
-
+	output: cumu_tsv = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.cumu.tsv",
+			cumu_npz = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.cumu.npz",
+			rank_tsv = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.rank.tsv",
+			rank_npz = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.rank.npz"
+	shell: "python3 {config[scripts_dir]}eval.py -i {input.results} -g  {input.gt} -d {input.acc_len_taxid_assembly} -n {input.nodes} -m {input.merged} --output-tab-cumulative {output.cumu_tsv} --output-npz-cumulative {output.cumu_npz} --output-tab-rank {output.rank_tsv} --output-npz-rank {output.rank_npz}"
 
 rule ganon:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
