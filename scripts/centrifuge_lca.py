@@ -17,7 +17,7 @@ def main():
 	filtered_nodes = {}
 	for leaf_taxid in unique_taxids:
 		t = leaf_taxid
-		while t!=0:
+		while t!="0":
 			try:
 				filtered_nodes[t] = nodes[t]
 				t = nodes[t]
@@ -26,8 +26,8 @@ def main():
 					filtered_nodes[t] = merged[t]
 					t = merged[t]
 				except KeyError: #if taxid is missing, link to root
-					filtered_nodes[t] = 1
-					t = 0
+					filtered_nodes[t] = "1"
+					t = "0"
 			
 	L = LCA(filtered_nodes)
 	
