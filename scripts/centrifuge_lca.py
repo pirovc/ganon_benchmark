@@ -57,7 +57,7 @@ def read_merged(merged_file):
 		with open(merged_file,'r') as fmerged:
 			for line in fmerged:
 				old_taxid, new_taxid, _ = line.split('\t|',2)
-				merged[old_taxid] = new_taxid.rstrip()
+				merged[old_taxid] = new_taxid.rstrip('\t')
 	return merged
 if __name__ == "__main__":
 	main()
