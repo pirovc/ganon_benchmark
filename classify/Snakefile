@@ -14,11 +14,12 @@ rule all:
 		rank_tsv = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".rank.tsv" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
 		rank_npz = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".rank.npz" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
 		stats = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".stats" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
-		bioboxes = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".bioboxes.gz" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]]
-		#amber_output = [database +"/"+ sample +"/amber/index.html" for tool in config["run"] for database in config["run"][tool] for sample in config["samples"]]
-
-rule gzip_bioboxes: # only after amber
-	input: amber_output = "{database}/{sample}/amber/index.html",
+		bioboxes = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".bioboxes.gz" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
+		# amber_output as set to remove repeated entries
+		amber_output = {database +"/"+ sample +"/amber/index.html" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for sample in config["samples"]},
+	
+rule gzip_bioboxes: 
+	input: amber_output = "{database}/{sample}/amber/index.html", # only after amber is finished
 			bioboxes = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.bioboxes"
 	output: "{database}/{sample}/{tool}-{dbconfig}-{parameters}.bioboxes.gz"
 	shell: "gzip {input.bioboxes}"
@@ -49,29 +50,38 @@ rule stats:
 		echo "{wildcards.tool}\t{wildcards.sample}\t{wildcards.database}\t{wildcards.dbconfig}\t{wildcards.parameters}\t${{timeelapsed}}\t${{timesec}}\t${{mbpm}}\t${{membytes}}" > {output.stats}
 		"""
 
-rule amber:
+rule amber_gt:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
-			bioboxes = lambda wildcards: [wildcards.database +"/"+ wildcards.sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".bioboxes" for tool in config["run"] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]],
 			gt = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["gt"]),
-			nodes = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["nodes"])
-	output: gt_bioboxes = temp("{database}/{sample}/amber.gt.bioboxes"),
-			amber_output = "{database}/{sample}/amber/index.html"
+	output: gt_bioboxes = "{database}/{sample}/amber.gt.bioboxes"
+	shell: 
+		"""
+		# bioboxes header
+		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n\\n@@SEQUENCEID\\tBINID\\tTAXID\\t_LENGTH\\n" > {output.gt_bioboxes}
+
+		# get read lenghts
+		join <(sort -k 1,1 {input.gt}) <(zcat {input.fq1} | sed -n '1~4p;2~4p' | paste - - | awk 'FS="\\t"{{print substr($1,2,length($1)-3)"\\t"length($2)}}' | sort -k 1,1) -t$'\\t' -o "1.1,1.2,1.3,2.2" >> {output.gt_bioboxes}
+		"""
+
+rule amber:
+	input: 	bioboxes = lambda wildcards: [wildcards.database +"/"+ wildcards.sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".bioboxes" for tool in config["run"] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]],
+			nodes = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["nodes"]),
+			names = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["names"]),
+			merged = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["merged"]),
+			gt_bioboxes = "{database}/{sample}/amber.gt.bioboxes"
+	output: amber_output = "{database}/{sample}/amber/index.html"
 	log: "{database}/{sample}/amber.log"
 	params: amber_dir = lambda wildcards: [wildcards.database +"/"+ wildcards.sample + "/amber/"],
 			tools_labels = lambda wildcards: ",".join([tool +"-"+ dbconfig +"-"+ parameter for tool in config["run"] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]])
 	conda: srcdir("../envs/amber.yaml")
 	shell: 
 		"""
-		mkdir -p {params.amber_dir}
+		## TO RE-RUN AMBER WITH NEW FILES ##
+		# gzip -d *.bioboxes.gz
+		# touch *.tsv *.npz
+		####################################
 
-		# bioboxes header
-		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n\\n@@SEQUENCEID\\tBINID\\tTAXID\\t_LENGTH\\n" > {output.gt_bioboxes}
-
-		# get read lenghts
-		join <(sort -k 1,1 {input.gt}) <(zcat {input.fq1} | sed -n '1~4p;2~4p' | paste - - | awk 'FS="\\t"{{print substr($1,2,length($1)-3)"\\t"length($2)}}' | sort -k 1,1) -t$'\\t' -o "1.1,1.2,1.3,2.2" >> {output.gt_bioboxes}
-	
-		# run amber
-		{config[amber_dir]}/amber.py -g {output.gt_bioboxes} --ncbi_nodes_file {input.nodes} --output_dir {params.amber_dir} -l {params.tools_labels} {input.bioboxes} >> {log} 2>&1
+		{config[tools_path][amber]}amber.py -g {input.gt_bioboxes} --ncbi_nodes_file {input.nodes} --ncbi_merged_file {input.merged} --ncbi_names_file {input.names} --output_dir {params.amber_dir} -l {params.tools_labels} {input.bioboxes} >> {log} 2>&1
 		"""
 
 rule evaluation:
@@ -84,8 +94,9 @@ rule evaluation:
 			cumu_npz = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.cumu.npz",
 			rank_tsv = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.rank.tsv",
 			rank_npz = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.rank.npz"
+	params: scripts_path = srcdir("../scripts/")
 	log: "{database}/{sample}/{tool}-{dbconfig}-{parameters}.eval.log"
-	shell: "python3 {config[scripts_dir]}eval.py -i {input.results} -g  {input.gt} -d {input.acc_len_taxid_assembly} -n {input.nodes} -m {input.merged} --output-tab-cumulative {output.cumu_tsv} --output-npz-cumulative {output.cumu_npz} --output-tab-rank {output.rank_tsv} --output-npz-rank {output.rank_npz} > {log} 2>&1"
+	shell: "python3 {params.scripts_path}eval.py -i {input.results} -g  {input.gt} -d {input.acc_len_taxid_assembly} -n {input.nodes} -m {input.merged} --output-tab-cumulative {output.cumu_tsv} --output-npz-cumulative {output.cumu_npz} --output-tab-rank {output.rank_tsv} --output-npz-rank {output.rank_npz} > {log} 2>&1"
 
 rule ganon:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
@@ -213,7 +224,8 @@ rule centrifuge_format:
 			acc_len_taxid_assembly = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["acc_len_taxid_assembly"])
 	output: parsed = temp("{database}/{sample}/centrifuge-{dbconfig}-{parameters}.parsed"),
 			final = "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.bioboxes"
-	params: params = lambda wildcards: config["run"]["centrifuge"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
+	params: params = lambda wildcards: config["run"]["centrifuge"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters],
+			scripts_path = srcdir("../scripts/")
 	shell: 
 		"""
 		# group results by taxid
@@ -228,7 +240,7 @@ rule centrifuge_format:
 		# bioboxes header
 		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" > {output.final}
 
-		python3 {config[scripts_dir]}/centrifuge_lca.py {output.parsed} {input.nodes} >> {output.final}
+		python3 {params.scripts_path}centrifuge_lca.py {output.parsed} {input.nodes} >> {output.final}
 		"""
 
 

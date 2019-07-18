@@ -1,8 +1,6 @@
 workdir: "/path/" 
 threads: 24
 
-scripts_dir: "/path/scripts/"
-
 tools_path:
   ganon: "/path/ganon/"
   krakenuniq: ""
@@ -10,17 +8,19 @@ tools_path:
   centrifuge: ""
   diamond: ""
   clark: ""
+  amber: ""
 
 samples:
   sample_name1:
     fq1: "/path/reads.1.fq.gz"
     fq2: ""
-    gt: "/path/gt.txt"
+    gt: "/path/seqid_assembly_taxid.tsv"
 
 databases:
   db_name1:
     nodes: "/path/nodes.dmp"
     merged: "/path/merged.dmp"
+    names: "/path/merged.dmp"
     acc_len_taxid_assembly: "/path/acc_len_taxid_assembly.txt"
 
 run:
