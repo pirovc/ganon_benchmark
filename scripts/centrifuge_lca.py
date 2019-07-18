@@ -8,11 +8,11 @@ def main():
 	for line in open(sys.argv[1]):
 		#readid, taxid, kmercount = line.rstrip().split("\t")
 		readid, assemblyid, taxid = line.rstrip().split("\t")
-		taxid = int(taxid)
 		unique_taxids.add(taxid)
 		rmatches[readid].append((assemblyid,taxid))
 
 	nodes = read_nodes(sys.argv[2])
+	merged = read_merged(sys.argv[3])
 	# Filter nodes for used taxids
 	filtered_nodes = {}
 	for leaf_taxid in unique_taxids:
@@ -21,9 +21,13 @@ def main():
 			try:
 				filtered_nodes[t] = nodes[t]
 				t = nodes[t]
-			except KeyError: #if taxid is missing, link to root
-				filtered_nodes[t] = 1
-				t = 0
+			except KeyError: #if taxid is missing, try merged
+				try:
+					filtered_nodes[t] = merged[t]
+					t = merged[t]
+				except KeyError: #if taxid is missing, link to root
+					filtered_nodes[t] = 1
+					t = 0
 			
 	L = LCA(filtered_nodes)
 	
@@ -42,9 +46,18 @@ def read_nodes(nodes_file):
 	with open(nodes_file,'r') as fnodes:
 		for line in fnodes:
 			taxid, parent_taxid, rank, _ = line.split('\t|\t',3)
-			nodes[int(taxid)] = int(parent_taxid)
-	nodes[1] = 0 #Change parent taxid of the root node to 0 (it's usually 1 and causes infinite loop later)
+			nodes[taxid] = parent_taxid
+	nodes["1"] = "0" #Change parent taxid of the root node to 0 (it's usually 1 and causes infinite loop later)
 	return nodes
-	
+
+def read_merged(merged_file):
+	# READ nodes -> fields (1:OLD TAXID 2:NEW TAXID)
+	merged = {}
+	if merged_file:
+		with open(merged_file,'r') as fmerged:
+			for line in fmerged:
+				old_taxid, new_taxid, _ = line.rstrip().split('\t|',2)
+				merged[old_taxid] = new_taxid
+	return merged
 if __name__ == "__main__":
 	main()

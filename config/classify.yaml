@@ -18,9 +18,6 @@ samples:
 
 databases:
   db_name1:
-    nodes: "/path/nodes.dmp"
-    merged: "/path/merged.dmp"
-    names: "/path/merged.dmp"
     acc_len_taxid_assembly: "/path/acc_len_taxid_assembly.txt"
 
 run:

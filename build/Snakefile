@@ -196,18 +196,23 @@ rule centrifuge_check:
 	shell: "du --block-size=1 {input} > {output}"#output in bytes
 
 rule diamond_prepare:
-	output: accession2taxid = "{database}/prot.accession2taxid.gz"
+	output: accession2taxid = "{database}/prot.accession2taxid.gz",
+			taxdump = temp("{database}/taxdump.tar.gz"),
+			diamond_nodes = "{database}/diamond_nodes.dmp" # needs the most up-to-date taxonomy to match prot.accession2taxid.gz
 	params: dbprefix = "{database}/"
 	shell: 
 		"""
 		mkdir -p {params.dbprefix}
 		curl -L --silent -o {output.accession2taxid}  ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/accession2taxid/prot.accession2taxid.gz
+		curl -L --silent -o {output.taxdump}  ftp://ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz
+		tar xf {output.taxdump} -C {params.dbprefix} nodes.dmp
+		mv {params.dbprefix}nodes.dmp {params.dbprefix}diamond_nodes.dmp
 		"""
 
 rule diamond:
  	input: faa = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["faa"]),
  			accession2taxid = "{database}/prot.accession2taxid.gz",
- 			nodes = lambda wildcards: config["databases"][wildcards.database]["nodes"]
+ 			diamond_nodes = "{database}/diamond_nodes.dmp"
 	output: db1="{database}/diamond_db/{parameters}/diamond_db.dmnd",
 			time="{database}/diamond_db/{parameters}/diamond_db.time"
 	log: "{database}/diamond_db/{parameters}/diamond_db.log"
@@ -215,7 +220,7 @@ rule diamond:
 	conda: srcdir("../envs/diamond.yaml") 
 	params: params = lambda wildcards: config["run"]["diamond"][wildcards.database][wildcards.parameters],
 			dbprefix = "{database}/diamond_db/{parameters}/"
-	shell: "/usr/bin/time -v --output={output.time} {config[tools_path][diamond]}diamond makedb --db {params.dbprefix}diamond_db --in {input.faa} --threads {threads} --taxonmap {input.accession2taxid} --taxonnodes {input.nodes} > {log} 2>&1"
+	shell: "/usr/bin/time -v --output={output.time} {config[tools_path][diamond]}diamond makedb --db {params.dbprefix}diamond_db --in {input.faa} --threads {threads} --taxonmap {input.accession2taxid} --taxonnodes {input.diamond_nodes} > {log} 2>&1"
 
 rule diamond_check:
 	input: "{database}/diamond_db/{parameters}/diamond_db.dmnd"

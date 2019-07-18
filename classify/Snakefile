@@ -50,6 +50,23 @@ rule stats:
 		echo "{wildcards.tool}\t{wildcards.sample}\t{wildcards.database}\t{wildcards.dbconfig}\t{wildcards.parameters}\t${{timeelapsed}}\t${{timesec}}\t${{mbpm}}\t${{membytes}}" > {output.stats}
 		"""
 
+# get latest taxdump to evaluate all tools equally in case they differ in their taxonomy versions
+rule taxdump_eval:
+	output: eval_nodes = "{database}/{sample}/eval_nodes.dmp",
+			eval_merged = "{database}/{sample}/eval_merged.dmp",
+			eval_names = "{database}/{sample}/eval_names.dmp",
+			taxdump = temp("{database}/{sample}/taxdump.tar.gz")
+	params: outprefix = "{database}/{sample}/"
+	shell: 
+		"""
+		curl -L --silent -o {output.taxdump}  ftp://ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz
+		tar xf {output.taxdump} -C {params.outprefix} nodes.dmp names.dmp merged.dmp
+		mv {params.outprefix}nodes.dmp {params.outprefix}eval_nodes.dmp
+		mv {params.outprefix}merged.dmp {params.outprefix}eval_merged.dmp
+		mv {params.outprefix}names.dmp {params.outprefix}eval_names.dmp
+		"""
+
+
 rule amber_gt:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
 			gt = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["gt"]),
@@ -65,10 +82,10 @@ rule amber_gt:
 
 rule amber:
 	input: 	bioboxes = lambda wildcards: [wildcards.database +"/"+ wildcards.sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".bioboxes" for tool in config["run"] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]],
-			nodes = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["nodes"]),
-			names = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["names"]),
-			merged = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["merged"]),
-			gt_bioboxes = "{database}/{sample}/amber.gt.bioboxes"
+			eval_nodes = "{database}/{sample}/eval_nodes.dmp",
+			eval_merged = "{database}/{sample}/eval_merged.dmp",
+			eval_names = "{database}/{sample}/eval_names.dmp",
+			gt_bioboxes = "{database}/{sample}/amber.gt.bioboxes",
 	output: amber_output = "{database}/{sample}/amber/index.html"
 	log: "{database}/{sample}/amber.log"
 	params: amber_dir = lambda wildcards: [wildcards.database +"/"+ wildcards.sample + "/amber/"],
@@ -76,19 +93,20 @@ rule amber:
 	conda: srcdir("../envs/amber.yaml")
 	shell: 
 		"""
+		####################################
 		## TO RE-RUN AMBER WITH NEW FILES ##
 		# gzip -d *.bioboxes.gz
 		# touch *.tsv *.npz
 		####################################
 
-		{config[tools_path][amber]}amber.py -g {input.gt_bioboxes} --ncbi_nodes_file {input.nodes} --ncbi_merged_file {input.merged} --ncbi_names_file {input.names} --output_dir {params.amber_dir} -l {params.tools_labels} {input.bioboxes} >> {log} 2>&1
+		{config[tools_path][amber]}amber.py -g {input.gt_bioboxes} --ncbi_nodes_file {input.eval_nodes} --ncbi_merged_file {input.eval_merged} --ncbi_names_file {input.eval_names} --output_dir {params.amber_dir} -l {params.tools_labels} {input.bioboxes} >> {log} 2>&1
 		"""
 
 rule evaluation:
 	input: results = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.bioboxes",
 			gt = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["gt"]),
-			nodes = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["nodes"]),
-			merged = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["merged"]),
+			eval_nodes = "{database}/{sample}/eval_nodes.dmp",
+			eval_merged = "{database}/{sample}/eval_merged.dmp",
 			acc_len_taxid_assembly = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["acc_len_taxid_assembly"])
 	output: cumu_tsv = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.cumu.tsv",
 			cumu_npz = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.cumu.npz",
@@ -96,7 +114,7 @@ rule evaluation:
 			rank_npz = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.rank.npz"
 	params: scripts_path = srcdir("../scripts/")
 	log: "{database}/{sample}/{tool}-{dbconfig}-{parameters}.eval.log"
-	shell: "python3 {params.scripts_path}eval.py -i {input.results} -g  {input.gt} -d {input.acc_len_taxid_assembly} -n {input.nodes} -m {input.merged} --output-tab-cumulative {output.cumu_tsv} --output-npz-cumulative {output.cumu_npz} --output-tab-rank {output.rank_tsv} --output-npz-rank {output.rank_npz} > {log} 2>&1"
+	shell: "python3 {params.scripts_path}eval.py -i {input.results} -g  {input.gt} -d {input.acc_len_taxid_assembly} -n {input.eval_nodes} -m {input.eval_merged} --output-tab-cumulative {output.cumu_tsv} --output-npz-cumulative {output.cumu_npz} --output-tab-rank {output.rank_tsv} --output-npz-rank {output.rank_npz} > {log} 2>&1"
 
 rule ganon:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
@@ -213,14 +231,18 @@ rule centrifuge:
 			params = lambda wildcards: config["run"]["centrifuge"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
 	shell: 
 		"""
-		/usr/bin/time -v --output={output.time} {config[tools_path][centrifuge]}centrifuge -t -x {input.dbprefix}/centrifuge_db -U {input.fq1} --threads {threads} -S {output.res} --report-file /dev/null {params.params} > {log} 2>&1
-
+		if [ "{params.params}" = "taxid" ]; then
+			/usr/bin/time -v --output={output.time} {config[tools_path][centrifuge]}centrifuge -t -x {input.dbprefix}/centrifuge_db -U {input.fq1} --threads {threads} -S {output.res} --report-file /dev/null > {log} 2>&1
+		else
+			/usr/bin/time -v --output={output.time} {config[tools_path][centrifuge]}centrifuge -t -x {input.dbprefix}/centrifuge_db -U {input.fq1} --threads {threads} -S {output.res} --report-file /dev/null {params.params} > {log} 2>&1
+		fi
 		grep -oP "(?<=Time searching: ).*" {log} | awk '{{split($0,a,":");sec=(a[1]*3600)+(a[2]*60)+a[3]; print "*"sec"*"}}' > {output.mbpm}
 		"""
 
 rule centrifuge_format:
 	input: res= "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.res",
-			nodes = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["nodes"]),
+			eval_nodes = "{database}/{sample}/eval_nodes.dmp",
+			eval_merged = "{database}/{sample}/eval_merged.dmp",
 			acc_len_taxid_assembly = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["acc_len_taxid_assembly"])
 	output: parsed = temp("{database}/{sample}/centrifuge-{dbconfig}-{parameters}.parsed"),
 			final = "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.bioboxes"
@@ -240,7 +262,7 @@ rule centrifuge_format:
 		# bioboxes header
 		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" > {output.final}
 
-		python3 {params.scripts_path}centrifuge_lca.py {output.parsed} {input.nodes} >> {output.final}
+		python3 {params.scripts_path}centrifuge_lca.py {output.parsed} {input.eval_nodes} {input.eval_merged} >> {output.final}
 		"""
 
 
