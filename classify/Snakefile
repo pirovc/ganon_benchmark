@@ -15,9 +15,25 @@ rule all:
 		rank_npz = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".rank.npz" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
 		stats = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".stats" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
 		bioboxes = [database +"/"+ sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".bioboxes.gz" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for dbconfig in config["run"][tool][database] for parameter in config["run"][tool][database][dbconfig]["parameters"] for sample in config["samples"]],
-		# amber_output as set to remove repeated entries
+		# integrated results as set to remove repeated entries
 		amber_output = {database +"/"+ sample +"/amber/index.html" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for sample in config["samples"]},
-	
+		plot_cumu = {database +"/"+ sample +"/plot_cumu.png" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for sample in config["samples"]},
+		plot_rank = {database +"/"+ sample +"/plot_rank.png" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for sample in config["samples"]}
+
+rule plots:
+	input: cumu_npz = lambda wildcards: [wildcards.database +"/"+ wildcards.sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".cumu.npz" for tool in config["run"] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]],
+		   rank_npz = lambda wildcards: [wildcards.database +"/"+ wildcards.sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".rank.npz" for tool in config["run"] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]]
+	output: plot_cumu = "{database}/{sample}/plot_cumu.png",
+			plot_rank = "{database}/{sample}/plot_rank.png"
+	params: scripts_path = srcdir("../scripts/"),
+			tools_labels = lambda wildcards: " ".join(["\"" + tool +" ("+ dbconfig +"-"+ parameter + ")\"" for tool in config["run"] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]])
+	conda: srcdir("../envs/plots.yaml")
+	shell:
+		"""
+		{params.scripts_path}plots.py -i {input.cumu_npz} -l {params.tools_labels} -o {output.plot_cumu}
+		{params.scripts_path}plots.py -i {input.rank_npz} -l {params.tools_labels} -o {output.plot_rank}
+		"""
+
 rule gzip_bioboxes: 
 	input: amber_output = "{database}/{sample}/amber/index.html", # only after amber is finished
 			bioboxes = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.bioboxes"

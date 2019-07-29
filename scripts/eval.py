@@ -278,6 +278,8 @@ def cumulative_eval(res,gt,nodes, ranks, fixed_ranks, L, rank_gttaxid, output_ta
 			final_stats['classified'][fr] = classified_ranks[fr]
 			final_stats['tp'][fr] = tp
 			final_stats['fp'][fr] = fp
+			final_stats['cs_db'][fr] = cs_db
+			final_stats['cs_classified'][fr] = cs_class
 			final_stats['tp_direct'][fr] = tp_direct_ranks[fr]
 			final_stats['tp_lca_lower'][fr] = lca_lower_ranks[fr]
 			final_stats['fp_direct'][fr] = fp_direct_ranks[fr]
