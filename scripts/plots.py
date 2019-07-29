@@ -45,7 +45,9 @@ def main():
 
 		if 'cs_db' in stats:
 			ax[0].plot([stats['cs_db'][r]/stats['cs_db']['root'] for r in selected_ranks if r in stats['cs_db']], alpha=0.7, linewidth=2, linestyle=linestyle, marker=None, markersize=0, color="black", label="")
-			
+		else:
+			ax[0].plot([stats['db'][r]/stats['db']['root'] for r in selected_ranks if r in stats['db']], alpha=0.7, linewidth=2, linestyle=linestyle, marker=None, markersize=0, color="black", label="")
+
 		ax[0].plot([stats['sensitivity'][r] for r in selected_ranks if r in stats['sensitivity'] and stats['sensitivity'][r]], alpha=alpha, linewidth=linewidth, linestyle=linestyle, marker=marker, markersize=markersize, color=color, label=tool_name)
 		# Precision
 		ax[1].plot([stats['precision'][r] for r in selected_ranks if r in stats['precision'] and stats['precision'][r]], alpha=alpha, linewidth=linewidth, linestyle=linestyle, marker=marker, markersize=markersize, color=color, label=tool_name)
