@@ -17,7 +17,7 @@ def main():
 	fixed_ranks = ['root','superkingdom','phylum','class','order','family','genus','species','species+','assembly']
 	
 	if not args.ranks:
-		selected_ranks = fixed_ranks
+		selected_ranks = fixed_ranks[1:]
 	else:
 		selected_ranks = [r for r in args.ranks if r in fixed_ranks]
 
@@ -46,11 +46,11 @@ def main():
 		if 'cs_db' in stats:
 			ax[0].plot([stats['cs_db'][r]/stats['cs_db']['root'] for r in selected_ranks if r in stats['cs_db']], alpha=0.7, linewidth=2, linestyle=linestyle, marker=None, markersize=0, color="black", label="")
 			
-		ax[0].plot([stats['sensitivity'][r] for r in selected_ranks if r in stats['sensitivity']], alpha=alpha, linewidth=linewidth, linestyle=linestyle, marker=marker, markersize=markersize, color=color, label=tool_name)
+		ax[0].plot([stats['sensitivity'][r] for r in selected_ranks if r in stats['sensitivity'] and stats['sensitivity'][r]], alpha=alpha, linewidth=linewidth, linestyle=linestyle, marker=marker, markersize=markersize, color=color, label=tool_name)
 		# Precision
-		ax[1].plot([stats['precision'][r] for r in selected_ranks if r in stats['precision']], alpha=alpha, linewidth=linewidth, linestyle=linestyle, marker=marker, markersize=markersize, color=color, label=tool_name)
+		ax[1].plot([stats['precision'][r] for r in selected_ranks if r in stats['precision'] and stats['precision'][r]], alpha=alpha, linewidth=linewidth, linestyle=linestyle, marker=marker, markersize=markersize, color=color, label=tool_name)
 		# F1 Score
-		ax[2].plot([stats['f1_score'][r] for r in selected_ranks if r in stats['f1_score']], alpha=alpha, linewidth=linewidth, linestyle=linestyle, marker=marker, markersize=markersize, color=color, label=tool_name)
+		ax[2].plot([stats['f1_score'][r] for r in selected_ranks if r in stats['f1_score'] and stats['f1_score'][r]], alpha=alpha, linewidth=linewidth, linestyle=linestyle, marker=marker, markersize=markersize, color=color, label=tool_name)
 
 
 	ax[0].set_ylim([-0.02,1.02])
