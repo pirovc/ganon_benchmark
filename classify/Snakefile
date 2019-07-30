@@ -21,12 +21,12 @@ rule all:
 		plot_rank = {database +"/"+ sample +"/plot_rank.png" for tool in config["run"] for database in config["run"][tool] if database in config["databases"] for sample in config["samples"]}
 
 rule plots:
-	input: cumu_npz = lambda wildcards: [wildcards.database +"/"+ wildcards.sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".cumu.npz" for tool in config["run"] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]],
-		   rank_npz = lambda wildcards: [wildcards.database +"/"+ wildcards.sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".rank.npz" for tool in config["run"] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]]
+	input: cumu_npz = lambda wildcards: [wildcards.database +"/"+ wildcards.sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".cumu.npz" for tool in config["run"] if wildcards.database in config["run"][tool] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]],
+		   rank_npz = lambda wildcards: [wildcards.database +"/"+ wildcards.sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".rank.npz" for tool in config["run"] if wildcards.database in config["run"][tool] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]]
 	output: plot_cumu = "{database}/{sample}/plot_cumu.png",
 			plot_rank = "{database}/{sample}/plot_rank.png"
 	params: scripts_path = srcdir("../scripts/"),
-			tools_labels = lambda wildcards: " ".join(["\"" + tool +" ("+ dbconfig +"-"+ parameter + ")\"" for tool in config["run"] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]])
+			tools_labels = lambda wildcards: " ".join(["\"" + tool +" ("+ dbconfig +"-"+ parameter + ")\"" for tool in config["run"] if wildcards.database in config["run"][tool] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]])
 	conda: srcdir("../envs/plots.yaml")
 	shell:
 		"""
@@ -97,7 +97,7 @@ rule amber_gt:
 		"""
 
 rule amber:
-	input: 	bioboxes = lambda wildcards: [wildcards.database +"/"+ wildcards.sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".bioboxes" for tool in config["run"] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]],
+	input: 	bioboxes = lambda wildcards: [wildcards.database +"/"+ wildcards.sample +"/"+ tool +"-"+ dbconfig +"-"+ parameter + ".bioboxes" for tool in config["run"] if wildcards.database in config["run"][tool] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]],
 			eval_nodes = "{database}/{sample}/eval_nodes.dmp",
 			eval_merged = "{database}/{sample}/eval_merged.dmp",
 			eval_names = "{database}/{sample}/eval_names.dmp",
@@ -105,7 +105,7 @@ rule amber:
 	output: amber_output = "{database}/{sample}/amber/index.html"
 	log: "{database}/{sample}/amber.log"
 	params: amber_dir = lambda wildcards: [wildcards.database +"/"+ wildcards.sample + "/amber/"],
-			tools_labels = lambda wildcards: ",".join([tool +"-"+ dbconfig +"-"+ parameter for tool in config["run"] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]])
+			tools_labels = lambda wildcards: ",".join([tool +"-"+ dbconfig +"-"+ parameter for tool in config["run"] if wildcards.database in config["run"][tool] for dbconfig in config["run"][tool][wildcards.database] for parameter in config["run"][tool][wildcards.database][dbconfig]["parameters"]])
 	conda: srcdir("../envs/amber.yaml")
 	shell: 
 		"""
