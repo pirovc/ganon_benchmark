@@ -1,5 +1,5 @@
 import sys
-from LCA import LCA
+from pylca.pylca import LCA
 from collections import defaultdict
 
 def main():

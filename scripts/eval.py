@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import sys, gzip, pickle, argparse
-from LCA import LCA
+from pylca.pylca import LCA
 from collections import defaultdict
 
 def main():
@@ -184,7 +184,7 @@ def check_taxid(taxid, file, nodes, merged):
 	return taxid
 
 def get_lineage(nodes, ranks, taxid, fixed_ranks):
-    lin = [""]*len(fixed_ranks)
+    lin = ["1"] + [""]*(len(fixed_ranks)-1)
     t = taxid
     while t!="1": 
     	r,tx = rank_up_to(t, nodes, ranks, fixed_ranks)
@@ -322,7 +322,7 @@ def rank_eval(res, gt, nodes, ranks, fixed_ranks, db_assembly, db_taxids, output
 
 		# Check if the taxid is on ground truth and account for it
 		for idx,fr in enumerate(fixed_ranks):
-			if taxid_lineage[gt_taxid][idx]!="": gt_ranks[fr]+=1
+			if taxid_lineage[gt_taxid][idx]: gt_ranks[fr]+=1
 			if taxid_lineage[gt_taxid][idx] in db_taxids: # if the is present in the database (=could be classified)
 				db_ranks[fr]+=1
 
@@ -342,21 +342,21 @@ def rank_eval(res, gt, nodes, ranks, fixed_ranks, db_assembly, db_taxids, output
 			if not taxid_lineage.get(res_taxid):
 				taxid_lineage[res_taxid] = get_lineage(nodes,ranks,res_taxid,fixed_ranks)
 
-			res_leaf_rank, _ = rank_up_to(res_taxid, nodes, ranks, fixed_ranks)
-
-			# compare from classification rank up
-			for idx,fr in enumerate(fixed_ranks[:fixed_ranks.index(res_leaf_rank)+1]):
-				classified_ranks[fr]+=1
-				if taxid_lineage[gt_taxid][idx]==taxid_lineage[res_taxid][idx]:
-					tp_ranks[fr]+=1
-				else:
-					fp_ranks[fr]+=1
+			# compare every taxonomic rank (after root)
+			for idx,fr in enumerate(fixed_ranks[1:]):
+				if taxid_lineage[res_taxid][idx]: # if there's a classification for such rank
+					classified_ranks[fr]+=1
+					if taxid_lineage[gt_taxid][idx]==taxid_lineage[res_taxid][idx]:
+						tp_ranks[fr]+=1
+					else:
+						fp_ranks[fr]+=1
 		else:
 			stats['unclassified']+=1
 
 	total_reads_gt = len(gt)
 	stats['classified'] = total_reads_gt - stats['unclassified']
-	
+	classified_ranks["root"] = stats['classified'] # all have root
+
 	final_stats = defaultdict(dict)
 	header = ["-", "gt","db","class","tp","fp", "sens_max_db", "sens", "prec", "f1s"] 
 	
@@ -369,7 +369,7 @@ def rank_eval(res, gt, nodes, ranks, fixed_ranks, db_assembly, db_taxids, output
 	print("assembly", gt_ranks_assembly, db_ranks_assembly, classified_ranks_assembly, tp_ranks_assembly, fp_ranks_assembly, "%.5f" % sens_max_assembly, "%.5f" % sens_assembly, "%.5f" % prec_assembly, "%.5f" % f1s_assembly, sep="\t", file=output_tab_rank)
 
 	for fr in fixed_ranks[::-1]:
-		tp = tp_ranks[fr]
+		tp = tp_ranks[fr] if fr!="root" else classified_ranks[fr]  # if root, all classified are true
 		fp = fp_ranks[fr]
 		sens = tp/total_reads_gt
 		sens_max = tp/float(db_ranks[fr]) if db_ranks[fr]>0 else 0

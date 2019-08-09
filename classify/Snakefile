@@ -128,6 +128,7 @@ rule evaluation:
 			cumu_npz = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.cumu.npz",
 			rank_tsv = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.rank.tsv",
 			rank_npz = "{database}/{sample}/{tool}-{dbconfig}-{parameters}.rank.npz"
+	conda: srcdir("../envs/eval.yaml")
 	params: scripts_path = srcdir("../scripts/")
 	log: "{database}/{sample}/{tool}-{dbconfig}-{parameters}.eval.log"
 	shell: "python3 {params.scripts_path}eval.py -i {input.results} -g  {input.gt} -d {input.acc_len_taxid_assembly} -n {input.eval_nodes} -m {input.eval_merged} --output-tab-cumulative {output.cumu_tsv} --output-npz-cumulative {output.cumu_npz} --output-tab-rank {output.rank_tsv} --output-npz-rank {output.rank_npz} > {log} 2>&1"
@@ -241,8 +242,8 @@ rule centrifuge:
 			time = "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.time",
 			mbpm=temp("{database}/{sample}/centrifuge-{dbconfig}-{parameters}.mbpm")
 	log: "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.log"
-	threads: config["threads"]
 	conda: srcdir("../envs/centrifuge.yaml")
+	threads: config["threads"]
 	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
 			params = lambda wildcards: config["run"]["centrifuge"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
 	shell: 
@@ -262,6 +263,7 @@ rule centrifuge_format:
 			acc_len_taxid_assembly = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["acc_len_taxid_assembly"])
 	output: parsed = temp("{database}/{sample}/centrifuge-{dbconfig}-{parameters}.parsed"),
 			final = "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.bioboxes"
+	conda: srcdir("../envs/eval.yaml")
 	params: params = lambda wildcards: config["run"]["centrifuge"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters],
 			scripts_path = srcdir("../scripts/")
 	shell: 
