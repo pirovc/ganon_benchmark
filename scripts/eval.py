@@ -322,9 +322,9 @@ def rank_eval(res, gt, nodes, ranks, fixed_ranks, db_assembly, db_taxids, output
 
 		# Check if the taxid is on ground truth and account for it
 		for idx,fr in enumerate(fixed_ranks):
-			if taxid_lineage[gt_taxid][idx]: gt_ranks[fr]+=1
-			if taxid_lineage[gt_taxid][idx] in db_taxids: # if the is present in the database (=could be classified)
-				db_ranks[fr]+=1
+			if taxid_lineage[gt_taxid][idx]:
+				gt_ranks[fr]+=1
+				if taxid_lineage[gt_taxid][idx] in db_taxids: db_ranks[fr]+=1 # if the is present in the database (=could be classified)
 
 		if readid in res.keys(): #if read is classified
 			res_assembly = res[readid][0]
@@ -342,8 +342,8 @@ def rank_eval(res, gt, nodes, ranks, fixed_ranks, db_assembly, db_taxids, output
 			if not taxid_lineage.get(res_taxid):
 				taxid_lineage[res_taxid] = get_lineage(nodes,ranks,res_taxid,fixed_ranks)
 
-			# compare every taxonomic rank (after root)
-			for idx,fr in enumerate(fixed_ranks[1:]):
+			# compare every taxonomic rank
+			for idx,fr in enumerate(fixed_ranks):
 				if taxid_lineage[res_taxid][idx]: # if there's a classification for such rank
 					classified_ranks[fr]+=1
 					if taxid_lineage[gt_taxid][idx]==taxid_lineage[res_taxid][idx]:
