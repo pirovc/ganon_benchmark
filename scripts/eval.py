@@ -200,9 +200,9 @@ def cumulative_eval(res,gt,nodes, ranks, fixed_ranks, L, rank_gttaxid, output_ta
 	db_ranks = defaultdict(int)
 	gt_ranks = defaultdict(int)
 	tp_direct_ranks = defaultdict(int)
-	fp_direct_ranks = defaultdict(int) 
-	lca_lower_ranks = defaultdict(int)
-	lca_higher_ranks = defaultdict(int)
+	tp_indirect_ranks = defaultdict(int)
+	fp_lower_ranks = defaultdict(int) 
+	fp_higher_ranks = defaultdict(int)
 	
 	for readid, (_, gt_taxid) in gt.items():
 
@@ -222,40 +222,40 @@ def cumulative_eval(res,gt,nodes, ranks, fixed_ranks, L, rank_gttaxid, output_ta
 			r, _ = rank_up_to(res_taxid, nodes, ranks, fixed_ranks)
 			classified_ranks[r]+=1
 			if r=="root": # root classification is equal to false
-				fp_direct_ranks[r]+=1
+				fp_lower_ranks[r]+=1
 			else:
 				if res_taxid == gt_taxid: #tp -> perfect classification
 					tp_direct_ranks[r]+=1
 				else:
 					lca = L(gt_taxid,res_taxid)
 					if lca==res_taxid: # tp -> conservative classification (gt is lower on tree)
-						lca_lower_ranks[r]+=1
+						tp_indirect_ranks[r]+=1
 					elif lca==gt_taxid: # fp -> classification to specific (gt is higher on tree)
-						lca_higher_ranks[r]+=1
+						fp_higher_ranks[r]+=1
 					else: # fp -> lca is higher than gt and res
-						fp_direct_ranks[r]+=1
+						fp_lower_ranks[r]+=1
 		else:
 			stats['unclassified']+=1
 
 	total_reads_gt = len(gt)
 	stats['classified'] = total_reads_gt - stats['unclassified']
-	stats['tp'] = sum(tp_direct_ranks.values()) + sum(lca_lower_ranks.values())
+	stats['tp'] = sum(tp_direct_ranks.values()) + sum(tp_indirect_ranks.values())
 	stats['fp'] = stats['classified'] - stats['tp']
 	
 	final_stats = defaultdict(dict)
-	header = ["-","gt","db","class","tp","fp","cs_db","cs_class","cs_tp","cs_fp","tp_direct","tp_lca_lower", "fp_direct", "fp_lca_higher", "sens_max_db", "sens", "prec",  "f1s"] 
+	header = ["-","gt","db","class","tp","fp","cs_db","cs_class","cs_tp","cs_fp","tp_direct","tp_indirect", "fp_lower", "fp_higher", "sens_max_db", "sens", "prec",  "f1s"] 
 
 	# taxonomic stats
 	print("\t".join(header), file=output_tab_cumu)
-	print("SUM", total_reads_gt, sum(db_ranks.values()), stats['classified'], stats['tp'], stats['fp'],"-","-","-","-", sum(tp_direct_ranks.values()), sum(lca_lower_ranks.values()), sum(fp_direct_ranks.values()), sum(lca_higher_ranks.values()),"-","-","-","-", sep="\t", file=output_tab_cumu)
+	print("SUM", total_reads_gt, sum(db_ranks.values()), stats['classified'], stats['tp'], stats['fp'],"-","-","-","-", sum(tp_direct_ranks.values()), sum(tp_indirect_ranks.values()), sum(fp_lower_ranks.values()), sum(fp_higher_ranks.values()),"-","-","-","-", sep="\t", file=output_tab_cumu)
 	cs_db = 0
 	cs_class = 0
 	cs_tp = 0
 	cs_fp = 0
 
 	for fr in fixed_ranks[::-1]:
-		tp = tp_direct_ranks[fr] + lca_lower_ranks[fr]
-		fp = fp_direct_ranks[fr] + lca_higher_ranks[fr]
+		tp = tp_direct_ranks[fr] + tp_indirect_ranks[fr]
+		fp = fp_lower_ranks[fr] + fp_higher_ranks[fr]
 		
 		cs_db+=db_ranks[fr] # make it cumulative
 		cs_class+=classified_ranks[fr]
@@ -270,7 +270,7 @@ def cumulative_eval(res,gt,nodes, ranks, fixed_ranks, L, rank_gttaxid, output_ta
 		prec = cs_tp/float(cs_class) if cs_class>0 else 0
 		f1s = (2*sens*prec)/float(sens+prec) if sens+prec>0 else 0
 		
-		print(fr, gt_ranks[fr], db_ranks[fr], classified_ranks[fr], tp, fp, cs_db, cs_class, cs_tp, cs_fp, tp_direct_ranks[fr], lca_lower_ranks[fr], fp_direct_ranks[fr], lca_higher_ranks[fr], "%.5f" % sens_max_db, "%.5f" % sens, "%.5f" % prec, "%.5f" % f1s, sep="\t", file=output_tab_cumu)
+		print(fr, gt_ranks[fr], db_ranks[fr], classified_ranks[fr], tp, fp, cs_db, cs_class, cs_tp, cs_fp, tp_direct_ranks[fr], tp_indirect_ranks[fr], fp_lower_ranks[fr], fp_higher_ranks[fr], "%.5f" % sens_max_db, "%.5f" % sens, "%.5f" % prec, "%.5f" % f1s, sep="\t", file=output_tab_cumu)
 		
 		if output_npz_cumu:
 			final_stats['gt'][fr] = gt_ranks[fr]
@@ -281,9 +281,9 @@ def cumulative_eval(res,gt,nodes, ranks, fixed_ranks, L, rank_gttaxid, output_ta
 			final_stats['cs_db'][fr] = cs_db
 			final_stats['cs_classified'][fr] = cs_class
 			final_stats['tp_direct'][fr] = tp_direct_ranks[fr]
-			final_stats['tp_lca_lower'][fr] = lca_lower_ranks[fr]
-			final_stats['fp_direct'][fr] = fp_direct_ranks[fr]
-			final_stats['fp_lca_higher'][fr] = lca_higher_ranks[fr]
+			final_stats['tp_indirect'][fr] = tp_indirect_ranks[fr]
+			final_stats['fp_lower'][fr] = fp_lower_ranks[fr]
+			final_stats['fp_higher'][fr] = fp_higher_ranks[fr]
 			final_stats['sensitivity_max_db'][fr] = sens_max_db
 			final_stats['sensitivity'][fr] = sens
 			final_stats['precision'][fr] = prec
