@@ -11,7 +11,7 @@ def main():
 	parser.add_argument('-l', metavar='<labels>', 		required=False, dest="labels", 		type=str, nargs="*", default="", help="Labels for the input files")
 	parser.add_argument('-c', metavar='<colors>', 		required=False, dest="colors", 		type=str, nargs="*", default="", help="Colors for the input files")
 	parser.add_argument('-k', metavar='<ranks>', 		required=False, dest="ranks", 		type=str, nargs="*", default="", help="Evaluated ranks. Default: 'superkingdom' 'phylum' 'class' 'order' 'family' 'genus' 'species' 'species+' 'assembly'")
-	parser.add_argument('-o', metavar='<ranks>', 		required=False, dest="output_plot", type=str, help="Outut figure file")
+	parser.add_argument('-o', metavar='<output_plot>', 		required=False, dest="output_plot", type=str, help="Outut figure file")
 	args = parser.parse_args()
 
 	fixed_ranks = ['root','superkingdom','phylum','class','order','family','genus','species','species+','assembly']
