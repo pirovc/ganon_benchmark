@@ -22,7 +22,10 @@ def main():
 		stats[tool_name] = s
 
 	for tool_name, s in stats.items():
-		if args.check: print(tool_name)
+		if args.check: 
+			print(tool_name)
+		else:
+			print(tool_name, end="\t& ")
 		for r in selected_ranks:
 			if args.check: 
 				print('precision', r, s['precision'][r], sep="\t")
