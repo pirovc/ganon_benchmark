@@ -7,6 +7,7 @@ def main():
 	parser = argparse.ArgumentParser(description='evaluate_profiles')
 	parser.add_argument('-i', metavar='<input_files>', 	required=True, 	dest="input_files", type=str, nargs="*", help="Input files (.npz)")
 	parser.add_argument('-c','--check', default=False, action='store_true', help='Verbose mode for ganon')
+	parser.add_argument('-t', required=False, default="",  dest="title", type=str, help='Verbose mode for ganon')
 	parser.add_argument('-k', metavar='<ranks>', 		required=False, dest="ranks", 		type=str, nargs="*", default="", help="Evaluated ranks. Default: 'superkingdom' 'phylum' 'class' 'order' 'family' 'genus' 'species' 'species+' 'assembly'")
 	args = parser.parse_args()
 
@@ -21,26 +22,27 @@ def main():
 		tool_name = input_file.split("/")[-1].split(".")[0].split("-")[0]
 		stats[tool_name] = s
 
-	for tool_name, s in stats.items():
+	for idx,(tool_name, s) in enumerate(stats.items()):
 		if args.check: 
 			print(tool_name)
 		else:
-			print(tool_name, end="\t& ")
+			if idx==0: print(args.title, end=" ")
+			print("& " + tool_name, end=" & ")
 		for r in selected_ranks:
 			if args.check: 
 				print('precision', r, s['precision'][r], sep="\t")
 			else:
-				print("%.2f\\%%" % (s['precision'][r]*100), end="\t& ")
+				print("%.2f\\%%" % (s['precision'][r]*100), end=" & ")
 		for r in selected_ranks:
 			if args.check: 
 				print('sensitivity', r, s['sensitivity'][r], sep="\t")
 			else:
-				print("%.2f\\%%" % (s['sensitivity'][r]*100), end="\t& ")
+				print("%.2f\\%%" % (s['sensitivity'][r]*100), end=" & ")
 		for r in selected_ranks:
 			if args.check: 
 				print('f1_score', r, s['f1_score'][r], sep="\t")
 			else:
-				print("%.2f\\%%" % (s['f1_score'][r]*100), end=" \\\\ " if selected_ranks.index(r)==len(selected_ranks)-1 else "\t& ")
+				print("%.2f\\%%" % (s['f1_score'][r]*100), end=" \\\\" if selected_ranks.index(r)==len(selected_ranks)-1 else " & ")
 		print("")
 
 if __name__ == "__main__":

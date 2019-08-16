@@ -3,4 +3,5 @@ channels:
  - bioconda
  - conda-forge
 dependencies:
+ - pylca=1.0.0
  - ganon=0.1.3
