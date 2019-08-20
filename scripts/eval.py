@@ -367,6 +367,15 @@ def rank_eval(res, gt, nodes, ranks, fixed_ranks, db_assembly, db_taxids, output
 	prec_assembly = tp_ranks_assembly/classified_ranks_assembly if classified_ranks_assembly>0 else 0
 	f1s_assembly = (2*sens_assembly*prec_assembly)/float(sens_assembly+prec_assembly) if sens_assembly+prec_assembly>0 else 0
 	print("assembly", gt_ranks_assembly, db_ranks_assembly, classified_ranks_assembly, tp_ranks_assembly, fp_ranks_assembly, "%.5f" % sens_max_assembly, "%.5f" % sens_assembly, "%.5f" % prec_assembly, "%.5f" % f1s_assembly, sep="\t", file=output_tab_rank)
+	if output_npz_rank:
+		final_stats['db']['assembly'] = db_ranks_assembly
+		final_stats['gt']['assembly'] = gt_ranks_assembly
+		final_stats['classified']['assembly'] = classified_ranks_assembly
+		final_stats['tp']['assembly'] = tp_ranks_assembly
+		final_stats['fp']['assembly'] = fp_ranks_assembly
+		final_stats['sensitivity']['assembly'] = sens_assembly
+		final_stats['precision']['assembly'] = prec_assembly
+		final_stats['f1_score']['assembly'] = f1s_assembly
 
 	for fr in fixed_ranks[::-1]:
 		tp = tp_ranks[fr] if fr!="root" else classified_ranks[fr]  # if root, all classified are true
