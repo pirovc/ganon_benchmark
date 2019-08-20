@@ -36,14 +36,14 @@ def main():
 
 		tool_name = args.labels[tool_id] if args.labels else input_file.split("/")[-1].split(".")[0]
 		color = args.colors[tool_id] if args.colors else fixed_colors[tool_id]
-		linestyle = args.colors[tool_id] if args.lines else  "-"
+		linestyle = args.lines[tool_id] if args.lines else  "-"
 		marker = args.markers[tool_id] if args.markers else "X"
 
 		markersize = 10
 
 		print(tool_id, tool_name, color, linestyle, marker, input_file)
-		linewidth = 3
-		alpha=0.9
+		linewidth = 2
+		alpha=0.8
 
 		#if 'cs_db' in stats:
 		#	ax[0].plot([stats['cs_db'][r]/stats['cs_db']['root'] for r in selected_ranks if r in stats['cs_db']], alpha=0.7, linewidth=2, linestyle=linestyle, marker=None, markersize=0, color="black", label="")
@@ -77,9 +77,9 @@ def main():
 	ax[2].set_xticklabels(selected_ranks, rotation=45, fontsize=fontsize)
 	handles,labels = ax[2].get_legend_handles_labels()
 	labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
-	ax[2].legend(handles,labels,loc="best", ncol=1, fontsize=fontsize)
+	ax[2].legend(handles,labels, bbox_to_anchor=(1, 1), ncol=1, fontsize=fontsize)
 
-	plt.subplots_adjust(left=None, bottom=0.15, right=None, top=None, wspace=0.03, hspace=None)
+	plt.subplots_adjust(left=None, bottom=0.15, right=0.8, top=None, wspace=0.03, hspace=None)
 	if args.output_plot:
 		fig.set_size_inches(18.5, 8)
 		plt.savefig(args.output_plot, dpi=300)
