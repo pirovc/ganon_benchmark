@@ -12,7 +12,7 @@ kraken_marker="s"
 
 evaluations=("cumu" "rank")
 datasets=("challenge" "toy")
-suffix="_1M"
+suffix="" #suffix="_1M"
 
 for ev in ${evaluations[@]}; do
   for dt in ${datasets[@]}; do
@@ -37,16 +37,3 @@ for ev in ${evaluations[@]}; do
   done
 done
 
-for ev in ${evaluations[@]}; do
-	# Clark vs. ganon at species level
-	ganon_benchmark/scripts/plots.py \
-    -i ganon_eval/new_results/20181219_abfv_refseq_cg_t3a/cami_toy_H01${suffix}/clark-*.${ev}.npz \
-	   ganon_eval/new_results/20181219_abfv_refseq_cg_t3a/cami_toy_H01${suffix}-ganon-ranks/ganon-rgenus*.${ev}.npz \
-       ganon_eval/new_results/20181219_abfv_refseq_cg_t3a/cami_toy_H01${suffix}-ganon-ranks/ganon-rspecies*.${ev}.npz \
-	   ganon_eval/new_results/20181219_abfv_refseq_cg_t3a/cami_toy_H01${suffix}-ganon-ranks/ganon-rtaxid*.${ev}.npz \
-    -k 'superkingdom' 'phylum' 'class' 'order' 'family' 'genus' 'species' 'species+' \
-    -l "clark (species)" "ganon (genus)" "ganon (species)" "ganon (taxid)" \
-    -c "${orange_color}" "${red_color}" "${red_color}" "${red_color}" \
-    -m "${clark_marker}" "${ganon_marker}" "${ganon_marker}" "${ganon_marker}" \
-    -o clark-ganon_toy_${ev}${suffix}.png > clark-ganon_toy_${ev}${suffix}.log
-done
