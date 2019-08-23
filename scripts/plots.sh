@@ -68,8 +68,8 @@ ganon_benchmark/scripts/plots.py \
      ganon_eval/new_results/20150602_bacteria_refseq_old/cami_toy_H01/{centrifuge,ganon,kraken}*.rank.npz \
      ganon_eval/new_results/20181219_abfv_refseq_cg/cami_toy_H01-assembly/*.rank.npz \
      ganon_eval/new_results/20181219_abfv_refseq_cg_t3a/cami_toy_H01/{centrifuge,ganon,kraken}*.rank.npz \
-     #ganon_eval/new_results/20181219_abfv_refseq_all/cami_toy_H01-assembly/*.rank.npz \
-     #ganon_eval/new_results/20181219_abfv_refseq_all_t3a/cami_toy_H01/ganon*.rank.npz \
+     ganon_eval/new_results/20181219_abfv_refseq_all/cami_toy_H01-assembly/*.rank.npz \
+     ganon_eval/new_results/20181219_abfv_refseq_all_t3a/cami_toy_H01/ganon*.rank.npz \
   -k 'phylum' 'class' 'order' 'family' 'genus' 'species' 'species+' 'assembly' \
   -l "centrifuge OLD (assembly)" "ganon OLD (assembly)" "krakenuniq OLD (assembly)" \
      "centrifuge OLD (taxid)" "ganon OLD (taxid)" "kraken OLD (taxid)" \
@@ -95,4 +95,4 @@ ganon_benchmark/scripts/plots.py \
      "solid" "solid" "solid" \
      "dotted" \
      "solid" \
-  -o complete_vs_top_cg_${dt}_${ev}${suffix}.png > complete_vs_top_cg_${dt}_${ev}${suffix}.log
+  -o assembly_taxid_${dt}_${ev}${suffix}.png > assembly_taxid_${dt}_${ev}${suffix}.log
