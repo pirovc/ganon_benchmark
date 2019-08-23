@@ -82,7 +82,7 @@ def main():
 	plt.subplots_adjust(left=None, bottom=0.15, right=0.8, top=None, wspace=0.03, hspace=None)
 	if args.output_plot:
 		fig.set_size_inches(18.5, 8)
-		plt.savefig(args.output_plot, dpi=300)
+		plt.savefig(args.output_plot, dpi=300, bbox_inches='tight')
 	else:
 		figManager = plt.get_current_fig_manager()
 		#figManager.window.showMaximized()
