@@ -39,11 +39,11 @@ benchmarking pipeline used to evaluate ganon as presented in https://www.biorxiv
 	git clone https://github.com/pirovc/genome_updater.git
 
 	# Recover reference sequences (.fna and .faa) for RefSeqCG with 32 threads
-	# XX Files, XX GB
+	# 39246 Files, 22GB
 	genome_updater.sh -o downloads/abfv_refseq_cg/ -i -m -f "genomic.fna.gz,protein.faa.gz" -t 32 
 	
 	# Recover reference sequences (fna and faa) for RefSeqALL with 32 threads
-	# XX Files, XX GB
+	# 295426 files, 270GB
 	genome_updater.sh -o downloads/abfv_refseq_all/ -i -m -f "genomic.fna.gz,protein.faa.gz" -t 32 
 
 ### 2) Generate reference files
@@ -114,6 +114,9 @@ To test the commands before running, use the addition `-npr` parameter.
 	# Classify real reads at taxonomic level
 	snakemake --snakefile classify/Snakefile --configfile files/config/classify_challenge_taxid.yaml --use-conda --cores 48 -k > classify_real_taxid.out 2>&1 
 
+	# Plots
+	scripts/plots.sh
+	
 ## build config:
 
 The main input files are:
@@ -126,15 +129,15 @@ The main input files are:
 
 ### Folder structure and output files:
 
-workdir/
-  db_name/
-    tool_db/
-      db_config/
-         prefix.\*: database/index files
-         prefix.check: size of all essential database files
-         prefix.log: stdout and stderr from the tool run
-         prefix.time: output from "/usr/bin/time -v"
-         prefix.stats: tool <tab> database <tab> parameters <tab> time elapsed <tab> time seconds <tab> peak memory bytes <tab> index size bytes
+	workdir/
+	  db_name/
+	    tool_db/
+	      db_config/
+	         prefix.\*: database/index files
+	         prefix.check: size of all essential database files
+	         prefix.log: stdout and stderr from the tool run
+	         prefix.time: output from "/usr/bin/time -v"
+	         prefix.stats: tool <tab> database <tab> parameters <tab> time elapsed <tab> time seconds <tab> peak memory bytes <tab> index size bytes
 
 ## classify config:
 
@@ -145,55 +148,55 @@ The main input files are:
 
 ### Folder structure and output files:
 
-workdir/
-   db_name/
-     sample_name/
-       amber/: amber output folder
-         index.html: main amber results
-       amber.gt.bioboxes: ground truth for amber
-       amber.log: stdout and stderr from amber run
-       eval_merged.dmp: merged.dmp used for the evaluations
-       eval_names.dmp: names.dmp used for the evaluations
-       eval_nodes.dmp: nodes.dmp used for the evaluations
-       tool-run_config-db_config.bioboxes.gz: read id <tab> assembly id <tab> taxonomic id
-       tool-run_config-db_config.cumu.{npz,tsv}: cumulative-based evaluation results
-       tool-run_config-db_config.rank.{npz,tsv}: rank-based evaluation results
-       tool-run_config-db_config.eval.log: stdout and stderr from the run evaluation run
-       tool-run_config-db_config.log: stdout and stderr from the tool run
-       tool-run_config-db_config.time: output from "/usr/bin/time -v"
-       tool-run_config-db_config.stats: tool <tab> sample_name <tab> db_name <tab> db_config <tab> run_config <tab> time elapsed <tab> time elapsed seconds <tab> Mbp/m (or equivalent run time in \*seconds\*) <tab> peak memory bytes
-       plot_cumu.png: plot of the cumulative-based evaluation for this sample
-       plot_rank.png: plot of the rank-based evaluation for this sample
+	workdir/
+	   db_name/
+	     sample_name/
+	       amber/: amber output folder
+	         index.html: main amber results
+	       amber.gt.bioboxes: ground truth for amber
+	       amber.log: stdout and stderr from amber run
+	       eval_merged.dmp: merged.dmp used for the evaluations
+	       eval_names.dmp: names.dmp used for the evaluations
+	       eval_nodes.dmp: nodes.dmp used for the evaluations
+	       tool-run_config-db_config.bioboxes.gz: read id <tab> assembly id <tab> taxonomic id
+	       tool-run_config-db_config.cumu.{npz,tsv}: cumulative-based evaluation results
+	       tool-run_config-db_config.rank.{npz,tsv}: rank-based evaluation results
+	       tool-run_config-db_config.eval.log: stdout and stderr from the run evaluation run
+	       tool-run_config-db_config.log: stdout and stderr from the tool run
+	       tool-run_config-db_config.time: output from "/usr/bin/time -v"
+	       tool-run_config-db_config.stats: tool <tab> sample_name <tab> db_name <tab> db_config <tab> run_config <tab> time elapsed <tab> time elapsed seconds <tab> Mbp/m (or equivalent run time in \*seconds\*) <tab> peak memory bytes
+	       plot_cumu.png: plot of the cumulative-based evaluation for this sample
+	       plot_rank.png: plot of the rank-based evaluation for this sample
 
 ### evaluation files:
 
-\*.cumu.tsv = cumulative-based results
-	gt: number of reads with entries on the ground truth
-	db: number of reads with entries on the ground refence set used
-	class: number of reads classified
-	tp: number of true positives
-	fp: number of false positives
-	sens_max_db: sensitivity (based on db)
-	sens: sensitivity
-	prec: precision
-	f1s: f1-score
+	\*.cumu.tsv = cumulative-based results
+		gt: number of reads with entries on the ground truth
+		db: number of reads with entries on the ground refence set used
+		class: number of reads classified
+		tp: number of true positives
+		fp: number of false positives
+		sens_max_db: sensitivity (based on db)
+		sens: sensitivity
+		prec: precision
+		f1s: f1-score
 	
 
-\*.rank.tsv = rank-based results
-	gt: number of reads with entries on the ground truth
-	db: number of reads with entries on the ground refence set used
-	class: number of reads classified
-	tp: number of true positives (tp_direct + tp_indirect)
-	fp: number of false positives (fp_lower + fp_higher)
-	cs_db: cumulative sum of db
-	cs_class: cumulative sum of class
-	cs_tp: cumulative sum of tp
-	cs_fp: cumulative sum of fp
-	tp_direct: number of direct true positives 
-	tp_indirect: number of indirect true positives 
-	fp_lower: number of lower false positives 
-	fp_higher: number of higher false positives 
-	sens_max_db: sensitivity (based on db)
-	sens: sensitivity
-	prec: precision
-	f1s: f1-score
+	\*.rank.tsv = rank-based results
+		gt: number of reads with entries on the ground truth
+		db: number of reads with entries on the ground refence set used
+		class: number of reads classified
+		tp: number of true positives (tp_direct + tp_indirect)
+		fp: number of false positives (fp_lower + fp_higher)
+		cs_db: cumulative sum of db
+		cs_class: cumulative sum of class
+		cs_tp: cumulative sum of tp
+		cs_fp: cumulative sum of fp
+		tp_direct: number of direct true positives 
+		tp_indirect: number of indirect true positives 
+		fp_lower: number of lower false positives 
+		fp_higher: number of higher false positives 
+		sens_max_db: sensitivity (based on db)
+		sens: sensitivity
+		prec: precision
+		f1s: f1-score
