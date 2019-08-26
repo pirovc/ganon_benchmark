@@ -1,12 +1,12 @@
 # ganon_benchmark
 
-benchmarking steps used to evaluate ganon as presented in https://www.biorxiv.org/content/10.1101/406017v2
+benchmarking pipeline used to evaluate ganon as presented in https://www.biorxiv.org/content/10.1101/406017v2
 
 ## description:
 
-The pipeline has 2 parts: build and classify
-
-The folder config/ contains examples of configuration files for building and classifying
+- The pipeline is divided into build and classify steps.
+- The folder config/ contains examples of configuration files for building and classifying
+- Configuration files used for generating the results presented in the manuscript are in files/config/. Files should be edited in a way the paths are correctly set. 
 
 ## dependencies:
 
@@ -27,7 +27,14 @@ The folder config/ contains examples of configuration files for building and cla
 	# unpack taxdump files
 	gzip -d files/taxdump/*.dmp.gz
 
+	# unpack gt files
+	gzip -d files/reads/cami/*/*readid_assembly_taxid.txt.gz
+
 ### 1) Download reference sequences
+
+	# Recover reference sequences (.fna and .faa) for RefSeqOLD
+	wget ftp://ftp.ncbi.nlm.nih.gov/genomes/archive/old_refseq/Bacteria/all.fna.tar.gz
+	wget ftp://ftp.ncbi.nlm.nih.gov/genomes/archive/old_refseq/Bacteria/all.faa.tar.gz
 
 	git clone https://github.com/pirovc/genome_updater.git
 
@@ -40,6 +47,18 @@ The folder config/ contains examples of configuration files for building and cla
 	genome_updater.sh -o downloads/abfv_refseq_all/ -i -m -f "genomic.fna.gz,protein.faa.gz" -t 32 
 
 ### 2) Generate reference files
+
+#### RefSeqOLD
+
+	# .fna
+	mkdir downloads/refseq_old_fna
+	tar xf downloads/all.fna.tar.gz -C downloads/refseq_old_fna
+	cat downloads/refseq_old_fna/*/*.fna | awk '{if(substr($0,0,1)==">"){split($0,sep,"|"); print ">" sep[4] sep[5];}else{print $0}}' > files/bacteria_refseq_old/all.fna
+	
+	# .faa
+	mkdir downloads/refseq_old_faa
+	tar xf downloads/all.faa.tar.gz -C downloads/refseq_old_faa
+	cat downloads/refseq_old_faa/*/*.faa | awk '{if(substr($0,0,1)==">"){split($0,sep,"|"); print ">" sep[4] sep[5];}else{print $0}}' > files/bacteria_refseq_old/all.faa
 
 #### RefSeqCG
 
@@ -75,13 +94,13 @@ The folder config/ contains examples of configuration files for building and cla
 
 ### 3) Obtaining reads
 
-A sub-set of a random 1 million reads from the complete set used to evaluate the tools is provided in this repository: reads/
+A sub-set of a random 1 million reads from the complete set used to evaluate the tools is provided in this repository under `reads/`. 
 
 To get the whole read sets used, please follow the instructions at: https://data.cami-challenge.org/participate
 
 ### 4) Running the pipeline
 
-Configuration files used for generating the results presented in the manuscript are in files/config/. Files should be edited in a way the paths are correctly set. To test the commands before running, use the addition `-npr` parameter.
+To test the commands before running, use the addition `-npr` parameter.
 
 	# Build all indices
 	snakemake --snakefile build/Snakefile --configfile files/config/build_complete_eval.yaml --use-conda --cores 48 -k > build.out 2>&1 
@@ -143,6 +162,8 @@ workdir/
        tool-run_config-db_config.log: stdout and stderr from the tool run
        tool-run_config-db_config.time: output from "/usr/bin/time -v"
        tool-run_config-db_config.stats: tool <tab> sample_name <tab> db_name <tab> db_config <tab> run_config <tab> time elapsed <tab> time elapsed seconds <tab> Mbp/m (or equivalent run time in \*seconds\*) <tab> peak memory bytes
+       plot_cumu.png: plot of the cumulative-based evaluation for this sample
+       plot_rank.png: plot of the rank-based evaluation for this sample
 
 ### evaluation files:
 
