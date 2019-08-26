@@ -1,0 +1,99 @@
+workdir: "ganon_eval/databases/"
+threads: 48
+tools_path:
+  ganon: ""
+  krakenuniq: ""
+  kraken: ""
+  centrifuge: ""
+  diamond: ""
+  clark: ""
+
+databases:
+  20181219_abfv_refseq_cg_t3a: 
+    fasta: "files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.fna"
+    faa: "files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.faa"
+    nodes: "files/taxdump/20181219_nodes.dmp"
+    merged: "files/taxdump/20181219_merged.dmp"
+    names: "files/taxdump/20181219_names.dmp"
+    acc_len_taxid_assembly: "files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a_acc_len_taxid_assembly.txt"
+  20181219_abfv_refseq_cg: 
+    fasta: "files/abfv_refseq_cg/20181219_abfv_refseq_cg.fna"
+    faa: "files/abfv_refseq_cg/20181219_abfv_refseq_cg.faa"
+    nodes: "files/taxdump/20181219_nodes.dmp"
+    names: "files/taxdump/20181219_names.dmp"
+    merged: "files/taxdump/20181219_merged.dmp"
+    acc_len_taxid_assembly: "files/abfv_refseq_cg/20181219_abfv_refseq_cg_acc_len_taxid_assembly.txt"
+  20181219_abfv_refseq_all_t3a: 
+    fasta: "files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a.fna"
+    faa: "files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a.faa"
+    nodes: "files/taxdump/20181219_nodes.dmp"
+    merged: "files/taxdump/20181219_merged.dmp"
+    names: "files/taxdump/20181219_names.dmp"
+    acc_len_taxid_assembly: "files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a_acc_len_taxid_assembly.txt"
+  20181219_abfv_refseq_all: 
+    fasta: "files/abfv_refseq_all/20181219_abfv_refseq_all.fna"
+    faa: "files/abfv_refseq_all/20181219_abfv_refseq_all.faa"
+    nodes: "files/taxdump/20181219_nodes.dmp"
+    merged: "files/taxdump/20181219_merged.dmp"
+    names: "files/taxdump/20181219_names.dmp"
+    acc_len_taxid_assembly: "files/abfv_refseq_all/20181219_abfv_refseq_all_acc_len_taxid_assembly.txt"
+  20150602_bacteria_refseq_old: 
+    fasta: "files/bacteria_refseq_old/all.fna"
+    faa: "files/bacteria_refseq_old/all.faa"
+    nodes: "files/taxdump/20190320_nodes.dmp"
+    merged: "files/taxdump/20190320_merged.dmp"
+    names: "files/taxdump/20190320_names.dmp"
+    acc_len_taxid_assembly: "files/bacteria_refseq_old/all_acc_len_taxid_assembly.txt"
+
+run:
+  ganon:
+    20181219_abfv_refseq_cg:
+      rtaxid_m96000: "-r taxid -m 96000" 
+      rassembly_m96000: "-r assembly -m 96000"
+    20181219_abfv_refseq_cg_t3a:
+      rtaxid_m64000: "-r taxid -m 64000"
+    20181219_abfv_refseq_all:
+      rtaxid_m480000: "-r taxid -m 480000"
+      rassembly_m512000: "-r assembly -m 512000"
+    20181219_abfv_refseq_all_t3a: 
+      rtaxid_m256000: "-r taxid -m 256000"
+    20150602_bacteria_refseq_old: 
+      rtaxid_m16000: "-r taxid -m 16000"
+      rassembly_m24000: "-r assembly -m 24000"
+  krakenuniq:
+    20181219_abfv_refseq_cg:
+      default: "--taxids-for-genomes"
+    20150602_bacteria_refseq_old:
+      default: "--taxids-for-genomes"
+  kraken:
+    20181219_abfv_refseq_cg: 
+      default: ""
+    20181219_abfv_refseq_cg_t3a:
+      default: ""
+    20150602_bacteria_refseq_old:
+      default: ""
+  centrifuge:
+    20181219_abfv_refseq_cg:
+      default: ""
+    20181219_abfv_refseq_cg_t3a:
+      default: ""
+    20150602_bacteria_refseq_old:
+      default: ""
+  diamond:
+    20181219_abfv_refseq_cg:
+      default: ""
+    20181219_abfv_refseq_cg_t3a:
+      default: ""
+    20181219_abfv_refseq_all:
+      default: ""
+    20181219_abfv_refseq_all_t3a:
+      default: ""
+    20150602_bacteria_refseq_old:
+      default: ""
+  clark:
+    20181219_abfv_refseq_cg:
+      default: ""
+    20181219_abfv_refseq_cg_t3a:
+      default: ""
+    20150602_bacteria_refseq_old:
+      default: ""

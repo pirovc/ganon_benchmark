@@ -1,0 +1,135 @@
+workdir: "ganon_eval/results/"
+threads: 48
+tools_path:
+  ganon: ""
+  krakenuniq: ""
+  kraken: ""
+  centrifuge: ""
+  diamond: ""
+  clark: ""
+  amber: "AMBER/"
+
+samples:
+  cami_toy_H01_1M:
+    fq1: "files/reads/cami/toy/H01_1M_0.1.fq.gz"
+    fq2: ""
+    gt: "files/reads/cami/toy/H01_1M_readid_assembly_taxid.txt"
+#  cami_toy_H01:
+#    fq1: "files/reads/cami/toy/H01.1.fq.gz"
+#    fq2: ""
+#    gt: "files/reads/cami/toy/H01_readid_assembly_taxid.txt"
+
+databases:
+  20181219_abfv_refseq_cg_t3a:
+    acc_len_taxid_assembly: "files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a_acc_len_taxid_assembly.txt"
+  20181219_abfv_refseq_cg:
+    acc_len_taxid_assembly: "files/abfv_refseq_cg/20181219_abfv_refseq_cg_acc_len_taxid_assembly.txt"
+  20181219_abfv_refseq_all_t3a:
+    acc_len_taxid_assembly: "files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a_acc_len_taxid_assembly.txt"
+  20181219_abfv_refseq_all:
+    acc_len_taxid_assembly: "files/abfv_refseq_all/20181219_abfv_refseq_all_acc_len_taxid_assembly.txt"
+  20150602_bacteria_refseq_old:
+    acc_len_taxid_assembly: "files/bacteria_refseq_old/all_acc_len_taxid_assembly.txt"
+
+run:
+  ganon:
+    20181219_abfv_refseq_cg_t3a:
+      rtaxid_m64000:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_cg_t3a/ganon_db/rtaxid_m64000/"
+        parameters:
+          e3u2f2: "-e 3 -u 2 -f 2"
+    20181219_abfv_refseq_cg:
+      rtaxid_m96000:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_cg/ganon_db/rtaxid_m96000/"
+        parameters:
+          e3u2f2: "-e 3 -u 2 -f 2"
+    20181219_abfv_refseq_all_t3a:
+      rtaxid_m256000:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_all_t3a/ganon_db/rtaxid_m256000/"
+        parameters:
+          e3u2f2: "-e 3 -u 2 -f 2"
+    20181219_abfv_refseq_all:
+      rtaxid_m480000:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_all/ganon_db/rtaxid_m480000/"
+        parameters:
+          e3u2f2: "-e 3 -u 2 -f 2"
+    20150602_bacteria_refseq_old:
+      rtaxid_m16000:
+        prefix: "ganon_eval/databases/20150602_bacteria_refseq_old/ganon_db/rtaxid_m16000/"
+        parameters:
+          e3u2f2: "-e 3 -u 2 -f 2"
+  kraken:
+    20181219_abfv_refseq_cg_t3a:
+      default:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_cg_t3a/kraken_db/default/"
+        parameters:
+          default: ""
+    20181219_abfv_refseq_cg:
+      default:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_cg/kraken_db/default/"
+        parameters:
+          default: ""
+    20150602_bacteria_refseq_old:
+      default:
+        prefix: "ganon_eval/databases/20150602_bacteria_refseq_old/kraken_db/default/"
+        parameters:
+          default: ""
+  centrifuge:
+    20181219_abfv_refseq_cg_t3a:
+      default:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_cg_t3a/centrifuge_db/default/"
+        parameters:
+          taxid: "taxid"
+    20181219_abfv_refseq_cg:
+      default:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_cg/centrifuge_db/default/"
+        parameters:
+          taxid: "taxid"
+    20150602_bacteria_refseq_old:
+      default:
+        prefix: "ganon_eval/databases/20150602_bacteria_refseq_old/centrifuge_db/default/"
+        parameters:
+          taxid: "taxid"
+  diamond:
+    20181219_abfv_refseq_cg_t3a:
+      default:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_cg_t3a/diamond_db/default/"
+        parameters:
+          default: ""
+    20181219_abfv_refseq_cg:
+      default:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_cg/diamond_db/default/"
+        parameters:
+          default: ""
+    20181219_abfv_refseq_all_t3a:
+      default:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_all_t3a/diamond_db/default/"
+        parameters:
+          default: ""
+    20181219_abfv_refseq_all:
+      default:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_all/diamond_db/default/"
+        parameters:
+          default: ""
+    20150602_bacteria_refseq_old:
+      default:
+        prefix: "ganon_eval/databases/20150602_bacteria_refseq_old/diamond_db/default/"
+        parameters:
+          default: ""
+  clark:
+    20181219_abfv_refseq_cg_t3a:
+      default:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_cg_t3a/clark_db/default/"
+        parameters:
+          default: ""
+    20181219_abfv_refseq_cg:
+      default:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_cg/clark_db/default/"
+        parameters:
+          default: ""
+    20150602_bacteria_refseq_old:
+      default:
+        prefix: "ganon_eval/databases/20150602_bacteria_refseq_old/clark_db/default/"
+        parameters:
+          default: ""
+

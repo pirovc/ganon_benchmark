@@ -1,0 +1,68 @@
+workdir: "ganon_eval/new_results/"
+threads: 48
+tools_path:
+  ganon: ""
+  krakenuniq: ""
+  kraken: ""
+  centrifuge: ""
+  diamond: ""
+  clark: ""
+  amber: "AMBER/"
+
+samples:
+  cami_toy_H01_1M-assembly:
+    fq1: "files/reads/cami/toy/H01_1M_0.1.fq.gz"
+    fq2: ""
+    gt: "files/reads/cami/toy/H01_1M_readid_assembly_taxid.txt"
+#  cami_toy_H01-assembly:
+#    fq1: "files/reads/cami/toy/H01.1.fq.gz"
+#    fq2: ""
+#    gt: "files/reads/cami/toy/H01_readid_assembly_taxid.txt"
+
+databases:
+  20181219_abfv_refseq_cg:
+    acc_len_taxid_assembly: "files/abfv_refseq_cg/20181219_abfv_refseq_cg_acc_len_taxid_assembly.txt"
+  20150602_bacteria_refseq_old:
+    acc_len_taxid_assembly: "files/bacteria_refseq_old/all_acc_len_taxid_assembly.txt"
+  20181219_abfv_refseq_all:
+    acc_len_taxid_assembly: "files/abfv_refseq_all/20181219_abfv_refseq_all_acc_len_taxid_assembly.txt"
+
+run:
+  ganon:
+    20181219_abfv_refseq_all:
+      rassembly_m512000:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_all/ganon_db/rassembly_m512000/"
+        parameters:
+          e3u2f2: "-e 3 -u 2 -f 2"
+    20181219_abfv_refseq_cg:
+      rassembly_m96000:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_cg/ganon_db/rassembly_m96000/"
+        parameters:
+          e3u2f2: "-e 3 -u 2 -f 2"
+    20150602_bacteria_refseq_old:
+      rassembly_m24000:
+        prefix: "ganon_eval/databases/20150602_bacteria_refseq_old/ganon_db/rassembly_m24000/"
+        parameters:
+          e3u2f2: "-e 3 -u 2 -f 2"
+  krakenuniq:
+    20181219_abfv_refseq_cg:
+      default:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_cg/krakenuniq_db/default/"
+        parameters:
+          default: ""
+    20150602_bacteria_refseq_old:
+      default:
+        prefix: "ganon_eval/databases/20150602_bacteria_refseq_old/krakenuniq_db/default/"
+        parameters:
+          default: ""
+  centrifuge:
+    20181219_abfv_refseq_cg:
+      default:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_cg/centrifuge_db/default/"
+        parameters:
+          assembly: ""
+    20150602_bacteria_refseq_old:
+      default:
+        prefix: "ganon_eval/databases/20150602_bacteria_refseq_old/centrifuge_db/default/"
+        parameters:
+          assembly: ""
