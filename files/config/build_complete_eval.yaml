@@ -40,9 +40,9 @@ databases:
   20150602_bacteria_refseq_old: 
     fasta: "files/bacteria_refseq_old/all.fna"
     faa: "files/bacteria_refseq_old/all.faa"
-    nodes: "files/taxdump/20190320_nodes.dmp"
-    merged: "files/taxdump/20190320_merged.dmp"
-    names: "files/taxdump/20190320_names.dmp"
+    nodes: "files/taxdump/20190121_nodes.dmp"
+    merged: "files/taxdump/20190121_merged.dmp"
+    names: "files/taxdump/20190121_names.dmp"
     acc_len_taxid_assembly: "files/bacteria_refseq_old/all_acc_len_taxid_assembly.txt"
 
 run:
