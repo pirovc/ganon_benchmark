@@ -1,7 +1,7 @@
 workdir: "/path/"
 threads: 24
 tools_path:
-  ganon: "/path/ganon/"
+  ganon: ""
   krakenuniq: ""
   kraken: ""
   centrifuge: ""

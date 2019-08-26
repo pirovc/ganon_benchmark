@@ -2,7 +2,7 @@ workdir: "/path/"
 threads: 24
 
 tools_path:
-  ganon: "/path/ganon/"
+  ganon: ""
   krakenuniq: ""
   kraken: ""
   centrifuge: ""
@@ -13,7 +13,7 @@ tools_path:
 samples:
   sample_name1:
     fq1: "/path/reads.1.fq.gz"
-    fq2: ""
+    fq2: "" #currently not supported
     gt: "/path/seqid_assembly_taxid.tsv"
 
 databases:
