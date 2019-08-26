@@ -30,14 +30,14 @@ def main():
 			print("& " + tool_name, end=" & ")
 		for r in selected_ranks:
 			if args.check: 
-				print('precision', r, s['precision'][r], sep="\t")
-			else:
-				print("%.2f\\%%" % (s['precision'][r]*100), end=" & ")
-		for r in selected_ranks:
-			if args.check: 
 				print('sensitivity', r, s['sensitivity'][r], sep="\t")
 			else:
 				print("%.2f\\%%" % (s['sensitivity'][r]*100), end=" & ")
+		for r in selected_ranks:
+			if args.check: 
+				print('precision', r, s['precision'][r], sep="\t")
+			else:
+				print("%.2f\\%%" % (s['precision'][r]*100), end=" & ")
 		for r in selected_ranks:
 			if args.check: 
 				print('f1_score', r, s['f1_score'][r], sep="\t")
