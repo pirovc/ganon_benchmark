@@ -94,7 +94,7 @@ benchmarking pipeline used to evaluate ganon as presented in https://www.biorxiv
 
 ### 3) Obtaining reads
 
-A sub-set of a random 1 million reads from the complete set used to evaluate the tools is provided in this repository under `reads/`. 
+A sub-set of a random 1 million reads from the complete set used to evaluate the tools is provided in this repository under `files/reads/`. 
 
 To get the whole read sets used, please follow the instructions at: https://data.cami-challenge.org/participate
 
