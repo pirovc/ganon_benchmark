@@ -37,6 +37,8 @@ benchmarking pipeline used to evaluate ganon as presented in https://www.biorxiv
 	wget ftp://ftp.ncbi.nlm.nih.gov/genomes/archive/old_refseq/Bacteria/all.faa.tar.gz
 
 	git clone https://github.com/pirovc/genome_updater.git
+	cd genome_update
+	git checkout 0.1.3
 
 	# Recover reference sequences (.fna and .faa) for RefSeqCG with 32 threads
 	# 39246 Files, 22GB
