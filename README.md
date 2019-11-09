@@ -64,34 +64,34 @@ benchmarking pipeline used to evaluate ganon as presented in https://www.biorxiv
 #### RefSeqCG
 
 	# .fna
-	zcat files/downloads/abfv_refseq_cg/recovered/files/*genomic.fna.gz > files/abfv_refseq_cg/20181219_abfv_refseq_cg.fna
+	zcat files/downloads/abfv_refseq_cg/recovered/files/*_genomic.fna.gz > files/abfv_refseq_cg/20181219_abfv_refseq_cg.fna
 	
 	# .faa
-	zcat files/downloads/abfv_refseq_cg/recovered/files/*protein.faa.gz > files/abfv_refseq_cg/20181219_abfv_refseq_cg.faa
+	zcat files/downloads/abfv_refseq_cg/recovered/files/*_protein.faa.gz > files/abfv_refseq_cg/20181219_abfv_refseq_cg.faa
 
 #### RefSeqCG top 3
 
 	# .fna
-	cut -f 4 files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a_acc_len_taxid_assembly.txt | sort | uniq | while read f; do zcat files/downloads/abfv_refseq_cg/recovered/files/${f}*.genomic.fna.gz >> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.fna 2> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.fna.log; done
+	cut -f 4 files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a_acc_len_taxid_assembly.txt | sort | uniq | while read f; do zcat files/downloads/abfv_refseq_cg/recovered/files/${f}*_genomic.fna.gz >> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.fna 2> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.fna.log; done
 	
 	# .faa
-	cut -f 4 files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a_acc_len_taxid_assembly.txt | sort | uniq | while read f; do zcat files/downloads/abfv_refseq_cg/recovered/files/${f}*.protein.faa.gz >> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.faa 2> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.fna.log; done
+	cut -f 4 files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a_acc_len_taxid_assembly.txt | sort | uniq | while read f; do zcat files/downloads/abfv_refseq_cg/recovered/files/${f}*_protein.faa.gz >> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.faa 2> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.fna.log; done
 
 #### RefSeqALL
 
 	# .fna
-	zcat files/downloads/abfv_refseq_all/recovered/files/\*genomic.fna.gz > files/abfv_refseq_all/20181219_abfv_refseq_all.fna
+	zcat files/downloads/abfv_refseq_all/recovered/files/*_genomic.fna.gz > files/abfv_refseq_all/20181219_abfv_refseq_all.fna
 	
 	# .faa
-	zcat files/downloads/abfv_refseq_all/recovered/files/\*protein.faa.gz > files/abfv_refseq_all/20181219_abfv_refseq_all.faa
+	zcat files/downloads/abfv_refseq_all/recovered/files/*_protein.faa.gz > files/abfv_refseq_all/20181219_abfv_refseq_all.faa
 
 #### RefSeqALL top 3
 
 	# .fna
-	cut -f 4 files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a_acc_len_taxid_assembly.txt | sort | uniq | while read f; do zcat files/downloads/abfv_refseq_all/recovered/files/${f}*.genomic.fna.gz >> files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a.fna 2> files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a.fna.log; done
+	cut -f 4 files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a_acc_len_taxid_assembly.txt | sort | uniq | while read f; do zcat files/downloads/abfv_refseq_all/recovered/files/${f}*_genomic.fna.gz >> files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a.fna 2> files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a.fna.log; done
 	
 	# .faa
-	cut -f 4 files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a_acc_len_taxid_assembly.txt | sort | uniq | while read f; do zcat downloads/abfv_refseq_all/recovered/files/${f}*.protein.faa.gz >> //abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a.faa 2> files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a.fna.log; done
+	cut -f 4 files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a_acc_len_taxid_assembly.txt | sort | uniq | while read f; do zcat downloads/abfv_refseq_all/recovered/files/${f}*_protein.faa.gz >> //abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a.faa 2> files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a.fna.log; done
 
 ### 3) Obtaining reads
 
