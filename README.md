@@ -42,11 +42,11 @@ benchmarking pipeline used to evaluate ganon as presented in https://www.biorxiv
 
 	# Recover reference sequences (.fna and .faa) for RefSeqCG with 32 threads
 	# 39246 Files, 22GB
-	genome_updater.sh -o downloads/abfv_refseq_cg/ -i -m -f "genomic.fna.gz,protein.faa.gz" -t 32 
+	genome_updater.sh -o files/downloads/abfv_refseq_cg/ -i -m -f "genomic.fna.gz,protein.faa.gz" -t 32 
 	
 	# Recover reference sequences (fna and faa) for RefSeqALL with 32 threads
 	# 295426 files, 270GB
-	genome_updater.sh -o downloads/abfv_refseq_all/ -i -m -f "genomic.fna.gz,protein.faa.gz" -t 32 
+	genome_updater.sh -o files/downloads/abfv_refseq_all/ -i -m -f "genomic.fna.gz,protein.faa.gz" -t 32 
 
 ### 2) Generate reference files
 
