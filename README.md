@@ -53,43 +53,43 @@ benchmarking pipeline used to evaluate ganon as presented in https://www.biorxiv
 #### RefSeqOLD
 
 	# .fna
-	mkdir downloads/refseq_old_fna
-	tar xf downloads/all.fna.tar.gz -C downloads/refseq_old_fna
-	cat downloads/refseq_old_fna/*/*.fna | awk '{if(substr($0,0,1)==">"){split($0,sep,"|"); print ">" sep[4] sep[5];}else{print $0}}' > files/bacteria_refseq_old/all.fna
+	mkdir files/downloads/refseq_old_fna
+	tar xf files/downloads/all.fna.tar.gz -C files/downloads/refseq_old_fna
+	cat files/downloads/refseq_old_fna/*/*.fna | awk '{if(substr($0,0,1)==">"){split($0,sep,"|"); print ">" sep[4] sep[5];}else{print $0}}' > files/bacteria_refseq_old/all.fna
 	
 	# .faa
-	mkdir downloads/refseq_old_faa
-	tar xf downloads/all.faa.tar.gz -C downloads/refseq_old_faa
-	cat downloads/refseq_old_faa/*/*.faa | awk '{if(substr($0,0,1)==">"){split($0,sep,"|"); print ">" sep[4] sep[5];}else{print $0}}' > files/bacteria_refseq_old/all.faa
+	mkdir files/downloads/refseq_old_faa
+	tar xf files/downloads/all.faa.tar.gz -C files/downloads/refseq_old_faa
+	cat files/downloads/refseq_old_faa/*/*.faa | awk '{if(substr($0,0,1)==">"){split($0,sep,"|"); print ">" sep[4] sep[5];}else{print $0}}' > files/bacteria_refseq_old/all.faa
 
 #### RefSeqCG
 
 	# .fna
-	zcat downloads/abfv_refseq_cg/\*genomic.fna.gz > files/abfv_refseq_cg/20181219_abfv_refseq_cg.fna
+	zcat files/downloads/abfv_refseq_cg/\*genomic.fna.gz > files/abfv_refseq_cg/20181219_abfv_refseq_cg.fna
 	
 	# .faa
-	zcat downloads/abfv_refseq_cg/\*protein.faa.gz > files/abfv_refseq_cg/20181219_abfv_refseq_cg.faa
+	zcat files/downloads/abfv_refseq_cg/\*protein.faa.gz > files/abfv_refseq_cg/20181219_abfv_refseq_cg.faa
 
 #### RefSeqCG top 3
 
 	# .fna
-	cut -f 4 files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a_acc_len_taxid_assembly.txt | sort | uniq | while read f; do zcat downloads/abfv_refseq_cg/files/${f}*.genomic.fna.gz >> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.fna 2> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.fna.log; done
+	cut -f 4 files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a_acc_len_taxid_assembly.txt | sort | uniq | while read f; do zcat files/downloads/abfv_refseq_cg/files/${f}*.genomic.fna.gz >> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.fna 2> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.fna.log; done
 	
 	# .faa
-	cut -f 4 files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a_acc_len_taxid_assembly.txt | sort | uniq | while read f; do zcat downloads/abfv_refseq_cg/files/${f}*.protein.faa.gz >> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.faa 2> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.fna.log; done
+	cut -f 4 files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a_acc_len_taxid_assembly.txt | sort | uniq | while read f; do zcat files/downloads/abfv_refseq_cg/files/${f}*.protein.faa.gz >> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.faa 2> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.fna.log; done
 
 #### RefSeqALL
 
 	# .fna
-	zcat downloads/abfv_refseq_all/\*genomic.fna.gz > files/abfv_refseq_all/20181219_abfv_refseq_all.fna
+	zcat files/downloads/abfv_refseq_all/\*genomic.fna.gz > files/abfv_refseq_all/20181219_abfv_refseq_all.fna
 	
 	# .faa
-	zcat downloads/abfv_refseq_all/\*protein.faa.gz > files/abfv_refseq_all/20181219_abfv_refseq_all.faa
+	zcat files/downloads/abfv_refseq_all/\*protein.faa.gz > files/abfv_refseq_all/20181219_abfv_refseq_all.faa
 
 #### RefSeqALL top 3
 
 	# .fna
-	cut -f 4 files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a_acc_len_taxid_assembly.txt | sort | uniq | while read f; do zcat downloads/abfv_refseq_all/files/${f}*.genomic.fna.gz >> files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a.fna 2> files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a.fna.log; done
+	cut -f 4 files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a_acc_len_taxid_assembly.txt | sort | uniq | while read f; do zcat files/downloads/abfv_refseq_all/files/${f}*.genomic.fna.gz >> files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a.fna 2> files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a.fna.log; done
 	
 	# .faa
 	cut -f 4 files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a_acc_len_taxid_assembly.txt | sort | uniq | while read f; do zcat downloads/abfv_refseq_all/files/${f}*.protein.faa.gz >> files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a.faa 2> files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a.fna.log; done
