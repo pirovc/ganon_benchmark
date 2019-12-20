@@ -82,7 +82,6 @@ rule taxdump_eval:
 		mv {params.outprefix}names.dmp {params.outprefix}eval_names.dmp
 		"""
 
-
 rule amber_gt:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
 			gt = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["gt"]),
@@ -135,9 +134,9 @@ rule evaluation:
 
 rule ganon:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
+			fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) 
 			dbprefix = lambda wildcards: os.path.abspath(config["run"]["ganon"][wildcards.database][wildcards.dbconfig]["prefix"])
-	output: out=temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.out"),
-			lca=temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.lca"),
+	output: lca=temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.lca"),
 			rep=temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.rep"),
 			tre=temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.tre"),
 			time="{database}/{sample}/ganon-{dbconfig}-{parameters}.time",
@@ -146,11 +145,10 @@ rule ganon:
 	threads: config["threads"]
 	conda: srcdir("../envs/ganon.yaml")
 	params: outprefix = "{database}/{sample}/ganon-{dbconfig}-{parameters}",
-			input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
 			params = lambda wildcards: config["run"]["ganon"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters],
 	shell: 
 		"""
-		/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon classify --verbose -d {input.dbprefix}/ganon_db -r {input.fq1} -t {threads} {params.params} -o {params.outprefix} > {log} 2>&1
+		/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon classify --verbose -d {input.dbprefix}/ganon_db -p {input.fq1} {input.fq2} -t {threads} -o {params.outprefix} {params.params} > {log} 2>&1
 
 		grep "ganon-classify processed " {log} | grep -o "[0-9.]* Mbp/m" | sed 's/ Mbp\\/m//g' > {output.mbpm}
 		"""
