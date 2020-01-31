@@ -82,7 +82,6 @@ rule taxdump_eval:
 		mv {params.outprefix}names.dmp {params.outprefix}eval_names.dmp
 		"""
 
-
 rule amber_gt:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
 			gt = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["gt"]),
@@ -135,6 +134,7 @@ rule evaluation:
 
 rule ganon:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
+			fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) 
 			dbprefix = lambda wildcards: os.path.abspath(config["run"]["ganon"][wildcards.database][wildcards.dbconfig]["prefix"])
 	output: lca=temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.lca"),
 			rep=temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.rep"),
