@@ -53,7 +53,7 @@ rule stats:
 		# elapsed time
 		timeelapsed=$(grep -oP "(?<=Elapsed \\(wall clock\\) time \\(h:mm:ss or m:ss\\): ).+" {input.time})
 		# time in seconds
-		timesec=$(echo ${{timeelapsed}} | awk '{{split($0,a,":");if(length(a)==2){{sec=(a[1]*60)+a[2]}}else{{sec=(a[1]*3600)+(a[2]*60)+a[3]}};print sec }}')
+		timesec=$(echo ${{timeelapsed}} | awk '{{l=split($0,a,":");if(l==2){{sec=(a[1]*60)+a[2]}}else{{sec=(a[1]*3600)+(a[2]*60)+a[3]}};print sec }}')
 
 		# peak memory in kilobytes 
 		memkbytes=$(grep -oP "(?<=Maximum resident set size \\(kbytes\\): ).+" {input.time})
@@ -136,8 +136,7 @@ rule evaluation:
 rule ganon:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
 			dbprefix = lambda wildcards: os.path.abspath(config["run"]["ganon"][wildcards.database][wildcards.dbconfig]["prefix"])
-	output: out=temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.out"),
-			lca=temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.lca"),
+	output: lca=temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.lca"),
 			rep=temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.rep"),
 			tre=temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.tre"),
 			time="{database}/{sample}/ganon-{dbconfig}-{parameters}.time",
@@ -146,12 +145,15 @@ rule ganon:
 	threads: config["threads"]
 	conda: srcdir("../envs/ganon.yaml")
 	params: outprefix = "{database}/{sample}/ganon-{dbconfig}-{parameters}",
-			input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
+			input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if config["samples"][wildcards.sample]["fq2"] else "",
 			params = lambda wildcards: config["run"]["ganon"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters],
 	shell: 
 		"""
-		/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon classify --verbose -d {input.dbprefix}/ganon_db -r {input.fq1} -t {threads} {params.params} -o {params.outprefix} > {log} 2>&1
-
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
+			/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon classify --verbose --db-prefix {input.dbprefix}/ganon_db -r {input.fq1} -t {threads} {params.params} -o {params.outprefix} > {log} 2>&1
+		else # paired-end
+			/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon classify --verbose --db-prefix {input.dbprefix}/ganon_db -p {input.fq1} {params.input_fq2} -t {threads} {params.params} -o {params.outprefix} > {log} 2>&1		
+		fi
 		grep "ganon-classify processed " {log} | grep -o "[0-9.]* Mbp/m" | sed 's/ Mbp\\/m//g' > {output.mbpm}
 		"""
 
@@ -244,14 +246,14 @@ rule centrifuge:
 	log: "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.log"
 	conda: srcdir("../envs/centrifuge.yaml")
 	threads: config["threads"]
-	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
-			params = lambda wildcards: config["run"]["centrifuge"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
+	params: input_fq2 = lambda wildcards: config["samples"][wildcards.sample]["fq2"] if config["samples"][wildcards.sample]["fq2"] else "",
+			params = lambda wildcards: config["run"]["centrifuge"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters] if config["run"]["centrifuge"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters] != "taxid" else ""
 	shell: 
 		"""
-		if [ "{params.params}" = "taxid" ]; then
-			/usr/bin/time -v --output={output.time} {config[tools_path][centrifuge]}centrifuge -t -x {input.dbprefix}/centrifuge_db -U {input.fq1} --threads {threads} -S {output.res} --report-file /dev/null > {log} 2>&1
-		else
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
 			/usr/bin/time -v --output={output.time} {config[tools_path][centrifuge]}centrifuge -t -x {input.dbprefix}/centrifuge_db -U {input.fq1} --threads {threads} -S {output.res} --report-file /dev/null {params.params} > {log} 2>&1
+		else # paired-end
+			/usr/bin/time -v --output={output.time} {config[tools_path][centrifuge]}centrifuge -t -x {input.dbprefix}/centrifuge_db -1 {input.fq1} -2 {params.input_fq2} --threads {threads} -S {output.res} --report-file /dev/null {params.params} > {log} 2>&1		
 		fi
 		grep -oP "(?<=Time searching: ).*" {log} | awk '{{split($0,a,":");sec=(a[1]*3600)+(a[2]*60)+a[3]; print "*"sec"*"}}' > {output.mbpm}
 		"""

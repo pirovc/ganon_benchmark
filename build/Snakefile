@@ -26,7 +26,14 @@ rule stats:
 		# elapsed time
 		timeelapsed=$(grep -oP "(?<=Elapsed \\(wall clock\\) time \\(h:mm:ss or m:ss\\): ).+" {input.time})
 		# time in seconds
-		timesec=$(echo ${{timeelapsed}} | awk '{{split($0,a,":");if(length(a)==2){{sec=(a[1]*60)+a[2]}}else{{sec=(a[1]*3600)+(a[2]*60)+a[3]}};print sec }}')
+		timesec=$(echo ${{timeelapsed}} | 
+		awk '{{l=split($0,a,":");
+		if(l==2){{
+			sec=(a[1]*60)+a[2];
+		}}else{{
+			sec=(a[1]*3600)+(a[2]*60)+a[3]
+		}};
+		print sec }}')
 
 		# peak memory in kilobytes 
 		memkbytes=$(grep -oP "(?<=Maximum resident set size \\(kbytes\\): ).+" {input.time})
@@ -45,23 +52,23 @@ rule ganon:
 			merged = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["merged"]),
 			names = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["names"]),
 			acc_len_taxid_assembly = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["acc_len_taxid_assembly"])
-	output: db1="{database}/ganon_db/{parameters}/ganon_db.bins",
-			db2="{database}/ganon_db/{parameters}/ganon_db.filter",
+	output: db1="{database}/ganon_db/{parameters}/ganon_db.ibf",
+			db2="{database}/ganon_db/{parameters}/ganon_db.tax",
 			db3="{database}/ganon_db/{parameters}/ganon_db.map",
-			db4="{database}/ganon_db/{parameters}/ganon_db.nodes",
+			db4="{database}/ganon_db/{parameters}/ganon_db.gnn",
 			time="{database}/ganon_db/{parameters}/ganon_db.time",
 	log: "{database}/ganon_db/{parameters}/ganon_db.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/ganon.yaml") 
 	params: params = lambda wildcards: config["run"]["ganon"][wildcards.database][wildcards.parameters],
 			dbprefix = "{database}/ganon_db/{parameters}/"
-	shell: "/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon build -d {params.dbprefix}ganon_db -i {input.fasta} -t {threads} --taxdump-file {input.nodes} {input.names} {input.merged} --seq-info-file {input.acc_len_taxid_assembly} {params.params} > {log} 2>&1"
+	shell: "/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon build --db-prefix {params.dbprefix}ganon_db --input-files {input.fasta} --threads {threads} --taxdump-file {input.nodes} {input.names} {input.merged} --seq-info-file {input.acc_len_taxid_assembly} {params.params} > {log} 2>&1"
 
 rule ganon_check:
-	input: "{database}/ganon_db/{parameters}/ganon_db.bins",
-			"{database}/ganon_db/{parameters}/ganon_db.filter",
+	input: "{database}/ganon_db/{parameters}/ganon_db.ibf",
+			"{database}/ganon_db/{parameters}/ganon_db.tax",
 			"{database}/ganon_db/{parameters}/ganon_db.map",
-			"{database}/ganon_db/{parameters}/ganon_db.nodes"
+			"{database}/ganon_db/{parameters}/ganon_db.gnn"
 	output: "{database}/ganon_db/{parameters}/ganon_db.check"
 	shell: "du --block-size=1 {input} > {output}" #output in bytes
 
@@ -85,7 +92,6 @@ rule krakenuniq_prepare:
 		cp {input.fasta} {output.fasta} # temp copy to get correct jellyfish hash size when building
 		awk -F "\\t" 'BEGIN {{FS="\\t";OFS="\\t"}}{{ if($4!="na"){{ print $1,$3,$4 }}}}' {input.acc_len_taxid_assembly} > {output.seqid2taxid_assembly}
 		"""
-
 
 rule krakenuniq:
  	input: fasta = "{database}/krakenuniq_db/{parameters}/library/file.fna",
@@ -225,8 +231,7 @@ rule diamond:
 rule diamond_check:
 	input: "{database}/diamond_db/{parameters}/diamond_db.dmnd"
 	output: "{database}/diamond_db/{parameters}/diamond_db.check"
-	shell: "du --block-size=1 {input} > {output}"#output in bytes
-
+	shell: "du --block-size=1 {input} > {output}" #output in bytes
 
 rule clark_prepare:
 	input: 	fasta = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["fasta"]),
@@ -261,7 +266,7 @@ rule clark_prepare:
 
 		# generate dummy fastq
 		printf "@read1\nTCTCAGTTATTAGAAATTCAATCCGATTTAGGACGACTAGGCATTTCAAT\n+\n@CBFFF@FFH8HHFIBJIJJJ?CIJGEJJIC)EIIADIJHG(D-DJA&EJ\n@read2\nGCTTCTACTACGGGCTGACGGCGTTAGCGTGCGCATGGTACTTCCGCAAC\n+\nC=C<FFFFHHDHGJ?HIJ<H;JDII)EIHJEGJ@GIIGHIJIIEEIIIHJ" > {output.dummy_file}		
-		"""  
+		"""
 
 rule clark:
  	input: seq_folder = "{database}/clark_db/{parameters}/Custom/",
@@ -300,10 +305,10 @@ rule clark:
 		{config[tools_path][clark]}CLARK -T {output.targets} -D {params.dbprefix}/custom_0/ -O {input.dummy_file} -R {params.dbprefix}/dummy_out -n {threads} >> {log} 2>&1;
 		"
 		rm -rfv {params.dbprefix}.custom {params.dbprefix}.custom.fileToAccssnTaxID {params.dbprefix}.custom.fileToTaxIDs {params.dbprefix}.tmp {params.dbprefix}taxonomy/ >> {log} 2>&1
-		"""	
+		"""
 
 rule clark_check:
 	input: db="{database}/clark_db/{parameters}/custom_0/",
 			targets="{database}/clark_db/{parameters}/targets.txt"
 	output: "{database}/clark_db/{parameters}/clark_db.check"
-	shell: "du --block-size=1 {input} > {output}"#output in bytes
+	shell: "du --block-size=1 {input} > {output}" #output in bytes

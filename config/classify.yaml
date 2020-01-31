@@ -13,7 +13,7 @@ tools_path:
 samples:
   sample_name1:
     fq1: "/path/reads.1.fq.gz"
-    fq2: "" #currently not supported
+    fq2: "/path/reads.2.fq.gz"
     gt: "/path/seqid_assembly_taxid.tsv"
 
 databases:
