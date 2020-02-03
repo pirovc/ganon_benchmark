@@ -254,7 +254,7 @@ rule clark_prepare:
 		mkdir -p {params.dbprefix}/Custom/
 
 		# split fasta into single sequences:
-		awk -v seq_folder='{output.seq_folder}' '{{if (substr($0, 1, 1)==">") {{filename=(seq_folder "/" substr($1,2) ".fna")}}; print $0 > filename}}' {input.fasta}
+		awk -v seq_folder='{output.seq_folder}' '{{if (substr($0, 1, 1)==">") {{close(filename);filename=(seq_folder "/" substr($1,2) ".fna")}}; print $0 > filename;}}' {input.fasta}
 
 		# simulate .accession2taxid files
 		awk -F "\\t" 'BEGIN {{FS="\\t";OFS="\\t"; print "accession","accession.version","taxid","gi"}}{{ if($1!="na"){{ split($1,acc,"."); print acc[1],$1,$3,"0" }}}}' {input.acc_len_taxid_assembly} > {output.nucl_accss}
@@ -302,6 +302,7 @@ rule clark:
 		cd ${{clark_opt_path}};
 		./set_targets.sh ${{abs_dbprefix}}/ custom > ${{abs_log}} 2>&1;
 		cd ${{current_path}};
+
 		{config[tools_path][clark]}CLARK -T {output.targets} -D {params.dbprefix}/custom_0/ -O {input.dummy_file} -R {params.dbprefix}/dummy_out -n {threads} >> {log} 2>&1;
 		"
 		rm -rfv {params.dbprefix}.custom {params.dbprefix}.custom.fileToAccssnTaxID {params.dbprefix}.custom.fileToTaxIDs {params.dbprefix}.tmp {params.dbprefix}taxonomy/ >> {log} 2>&1

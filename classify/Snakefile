@@ -183,12 +183,15 @@ rule krakenuniq:
 	log: "{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/krakenuniq.yaml")
-	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
+	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if config["samples"][wildcards.sample]["fq2"] else "",
 			params = lambda wildcards: config["run"]["krakenuniq"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
 	shell: 
 		"""
-		/usr/bin/time -v --output={output.time} {config[tools_path][krakenuniq]}krakenuniq --db {input.dbprefix} --threads {threads} --output {output.res} --only-classified-output --fastq-input --gzip-compressed --report-file {output.report} {params.params} {input.fq1} > {log} 2>&1
-
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
+			/usr/bin/time -v --output={output.time} {config[tools_path][krakenuniq]}krakenuniq --db {input.dbprefix} --threads {threads} --output {output.res} --only-classified-output --fastq-input --gzip-compressed --report-file {output.report} {params.params} {input.fq1} > {log} 2>&1
+		else # paired-end
+			/usr/bin/time -v --output={output.time} {config[tools_path][krakenuniq]}krakenuniq --db {input.dbprefix} --threads {threads} --output {output.res} --only-classified-output --fastq-input --gzip-compressed --report-file {output.report} {params.params} --paired {input.fq1} {params.input_fq2} > {log} 2>&1
+		fi
 		grep " processed in " {log} | grep -o "[0-9.]* Mbp/m" | sed 's/ Mbp\\/m//g' > {output.mbpm}
 		"""
 
@@ -217,11 +220,15 @@ rule kraken:
 	log: "{database}/{sample}/kraken-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/kraken.yaml")
-	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
+	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if config["samples"][wildcards.sample]["fq2"] else "",
 			params = lambda wildcards: config["run"]["kraken"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
 	shell: 
 		"""
-		/usr/bin/time -v --output={output.time} {config[tools_path][kraken]}kraken --db {input.dbprefix} --threads {threads} --output {output.res} --only-classified-output --fastq-input --gzip-compressed {params.params} {input.fq1} > {log} 2>&1
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
+			/usr/bin/time -v --output={output.time} {config[tools_path][kraken]}kraken --db {input.dbprefix} --threads {threads} --output {output.res} --only-classified-output --fastq-input --gzip-compressed {params.params} {input.fq1} > {log} 2>&1
+		else # paired-end
+			/usr/bin/time -v --output={output.time} {config[tools_path][kraken]}kraken --db {input.dbprefix} --threads {threads} --output {output.res} --only-classified-output --fastq-input --gzip-compressed {params.params} --paired {input.fq1} {params.input_fq2} > {log} 2>&1
+		fi
 
 		grep " processed in " {log} | grep -o "[0-9.]* Mbp/m" | sed 's/ Mbp\\/m//g' > {output.mbpm}
 		"""
@@ -295,11 +302,14 @@ rule diamond:
 	log: "{database}/{sample}/diamond-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/diamond.yaml")
-	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
+	params: input_fq2 = lambda wildcards: config["samples"][wildcards.sample]["fq2"] if config["samples"][wildcards.sample]["fq2"] else "",
 			params = lambda wildcards: config["run"]["diamond"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
 	shell: 
 		"""
-		/usr/bin/time -v --output={output.time} {config[tools_path][diamond]}diamond blastx --db {input.dbprefix}/diamond_db --query {input.fq1} --out {output.res} --outfmt 102 --threads {threads} {params.params} > {log} 2>&1
+		if [[ ! -z "{params.input_fq2}" ]]; then # paired-end
+			echo "DIAMOND does not support paired-end reads, using just first file" > {log};
+		fi
+		/usr/bin/time -v --output={output.time} {config[tools_path][diamond]}diamond blastx --db {input.dbprefix}/diamond_db --query {input.fq1} --out {output.res} --outfmt 102 --threads {threads} {params.params} >> {log} 2>&1
 
 		grep -oP "(?<=Total time \\= ).*" {log} | awk '{{print "*"substr($1, 1, length($1)-1)"*"}}' > {output.mbpm}
 		"""
@@ -320,21 +330,32 @@ rule clark:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
 			dbprefix = lambda wildcards: os.path.abspath(config["run"]["clark"][wildcards.database][wildcards.dbconfig]["prefix"])
 	output: csv = temp("{database}/{sample}/clark-{dbconfig}-{parameters}.csv"),
-			fq1 = temp("{database}/{sample}/clark-{dbconfig}-{parameters}.fq"),
+			fq1 = temp("{database}/{sample}/clark-{dbconfig}-{parameters}.1.fq"),
+			fq2 = temp("{database}/{sample}/clark-{dbconfig}-{parameters}.2.fq"),
 			time = "{database}/{sample}/clark-{dbconfig}-{parameters}.time",
 			mbpm=temp("{database}/{sample}/clark-{dbconfig}-{parameters}.mbpm")
 	log: "{database}/{sample}/clark-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/clark.yaml")
 	params: outprefix = "{database}/{sample}/clark-{dbconfig}-{parameters}",
-			input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
+			input_fq2 = lambda wildcards: config["samples"][wildcards.sample]["fq2"] if config["samples"][wildcards.sample]["fq2"] else "",
 			params = lambda wildcards: config["run"]["clark"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
 	shell: 
 		"""
-		/usr/bin/time -v --output={output.time} bash -c "
-		gzip -d -c {input.fq1} > {output.fq1};
-		{config[tools_path][clark]}CLARK -T {input.dbprefix}/targets.txt -D {input.dbprefix}/custom_0/ -R {params.outprefix} -O {output.fq1} -n {threads} {params.params} > {log} 2>&1;
-		"
+
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
+			/usr/bin/time -v --output={output.time} bash -c "
+			gzip -d -c {input.fq1} > {output.fq1};
+			touch {output.fq2};
+			{config[tools_path][clark]}CLARK -T {input.dbprefix}/targets.txt -D {input.dbprefix}/custom_0/ -R {params.outprefix} -O {output.fq1} -n {threads} {params.params} > {log} 2>&1;
+			"
+		else # paired-end
+			/usr/bin/time -v --output={output.time} bash -c "
+			gzip -d -c {input.fq1} > {output.fq1};
+			gzip -d -c {params.input_fq2} > {output.fq2};
+			{config[tools_path][clark]}CLARK -T {input.dbprefix}/targets.txt -D {input.dbprefix}/custom_0/ -R {params.outprefix} -P {output.fq1} {output.fq2} -n {threads} {params.params} > {log} 2>&1;
+			"
+		fi
 
 		grep -oP "(?<= - Assignment time\: )[^s]*" {log} | awk '{{print "*"$1"*"}}' > {output.mbpm}
 		"""
