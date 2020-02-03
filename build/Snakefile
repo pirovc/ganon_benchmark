@@ -292,7 +292,7 @@ rule clark:
 		if [[ "{config[tools_path][clark]}" != "" ]]; then 
 			clark_opt_path="{config[tools_path][clark]}"; 
 		else 
-			clark_opt_path="$(conda env list | grep "*" | awk '{print $2}')/opt/clark/"; 
+			clark_opt_path="$(conda env list | grep "*" | awk '{{print $2}}')/opt/clark/"; 
 		fi
 		# store current path
 		current_path=$(pwd)
