@@ -289,7 +289,11 @@ rule clark:
 		"""
 		# The script should be on set_targets.sh script folder (ENV/opt/clark/) to generate the database 
 		# with correct paths. If there's no alternative path set, get current environment path 
-		if [[ "{config[tools_path][clark]}" != "" ]]; then clark_opt_path="{config[tools_path][clark]}"; else clark_opt_path="${{PATH%%/bin:*}}/opt/clark/"; fi
+		if [[ "{config[tools_path][clark]}" != "" ]]; then 
+			clark_opt_path="{config[tools_path][clark]}"; 
+		else 
+			clark_opt_path="$(conda env list | grep "*" | awk '{print $2}')/opt/clark/"; 
+		fi
 		# store current path
 		current_path=$(pwd)
 		# Get absolute paths in case they are relative
@@ -302,9 +306,9 @@ rule clark:
 		cd ${{clark_opt_path}};
 		./set_targets.sh ${{abs_dbprefix}}/ custom > ${{abs_log}} 2>&1;
 		cd ${{current_path}};
-
 		{config[tools_path][clark]}CLARK -T {output.targets} -D {params.dbprefix}/custom_0/ -O {input.dummy_file} -R {params.dbprefix}/dummy_out -n {threads} >> {log} 2>&1;
 		"
+
 		rm -rfv {params.dbprefix}.custom {params.dbprefix}.custom.fileToAccssnTaxID {params.dbprefix}.custom.fileToTaxIDs {params.dbprefix}.tmp {params.dbprefix}taxonomy/ >> {log} 2>&1
 		"""
 
