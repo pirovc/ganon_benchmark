@@ -236,12 +236,17 @@ rule kraken:
 rule kraken_format:
 	input: res = "{database}/{sample}/kraken-{dbconfig}-{parameters}.res"
 	output: "{database}/{sample}/kraken-{dbconfig}-{parameters}.bioboxes"
+	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if config["samples"][wildcards.sample]["fq2"] else ""
 	shell:
 		"""
 		# bioboxes header
 		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" > {output}
 
-		grep "^C" {input.res} | awk 'FS="\\t"{{print substr($2,1,length($2)-2)"\\t0\\t"$3}}' >> {output}
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
+			grep "^C" {input.res} | awk 'FS="\\t"{{print substr($2,1,length($2)-2)"\\t0\\t"$3}}' >> {output}
+		else # paired-end
+			grep "^C" {input.res} | awk 'FS="\\t"{{print $2"\\t0\\t"$3}}' >> {output}
+		fi
 		"""
 
 rule centrifuge:
