@@ -213,10 +213,10 @@ rule krakenuniq_format:
 		fi
 
 		# get assembly assignemnts:
-		join -1 2 -2 1 <(grep "^C" {input.res} | awk v header_suffix="${{header_suffix}}" 'FS="\\t"{{if($3>=1000000000) print substr($2,1,length($2)-header_suffix)"\\t"$3}}' | sort -k 2,2) <(sort -k 1,1 {input.dbprefix}/taxDB) -t$'\\t' -o "1.1,2.3,2.2" >> {output}
+		join -1 2 -2 1 <(grep "^C" {input.res} | awk -v header_suffix="${{header_suffix}}" 'FS="\\t"{{if($3>=1000000000) print substr($2,1,length($2)-header_suffix)"\\t"$3}}' | sort -k 2,2) <(sort -k 1,1 {input.dbprefix}/taxDB) -t$'\\t' -o "1.1,2.3,2.2" >> {output}
 
 		# append taxid only assignments:
-		grep "^C" {input.res} | awk v header_suffix="${{header_suffix}}" 'FS="\\t"{{if($3<1000000000) print substr($2,1,length($2)-header_suffix)"\\t0\\t"$3}}' >> {output}
+		grep "^C" {input.res} | awk -v header_suffix="${{header_suffix}}" 'FS="\\t"{{if($3<1000000000) print substr($2,1,length($2)-header_suffix)"\\t0\\t"$3}}' >> {output}
 		"""
 
 rule kraken:
