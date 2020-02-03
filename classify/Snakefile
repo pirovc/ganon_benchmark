@@ -199,16 +199,24 @@ rule krakenuniq_format:
 	input: res = "{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.res",
 			dbprefix = lambda wildcards: os.path.abspath(config["run"]["krakenuniq"][wildcards.database][wildcards.dbconfig]["prefix"])
 	output: "{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.bioboxes"
+	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if config["samples"][wildcards.sample]["fq2"] else ""
 	shell:
 		"""
 		# bioboxes header
 		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" > {output}
 	
+		# output header changes when sinle or paired (/1 or nothing)
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
+			header_suffix=2;
+		else # paired-end
+			header_suffix=0;
+		fi
+
 		# get assembly assignemnts:
-		join -1 2 -2 1 <(grep "^C" {input.res} | awk 'FS="\\t"{{if($3>=1000000000) print substr($2,1,length($2)-2)"\\t"$3}}' | sort -k 2,2) <(sort -k 1,1 {input.dbprefix}/taxDB) -t$'\\t' -o "1.1,2.3,2.2" >> {output}
+		join -1 2 -2 1 <(grep "^C" {input.res} | awk v header_suffix="${{header_suffix}}" 'FS="\\t"{{if($3>=1000000000) print substr($2,1,length($2)-header_suffix)"\\t"$3}}' | sort -k 2,2) <(sort -k 1,1 {input.dbprefix}/taxDB) -t$'\\t' -o "1.1,2.3,2.2" >> {output}
 
 		# append taxid only assignments:
-		grep "^C" {input.res} | awk 'FS="\\t"{{if($3<1000000000) print substr($2,1,length($2)-2)"\\t0\\t"$3}}' >> {output}
+		grep "^C" {input.res} | awk v header_suffix="${{header_suffix}}" 'FS="\\t"{{if($3<1000000000) print substr($2,1,length($2)-header_suffix)"\\t0\\t"$3}}' >> {output}
 		"""
 
 rule kraken:
@@ -242,11 +250,14 @@ rule kraken_format:
 		# bioboxes header
 		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" > {output}
 
+		# output header changes when sinle or paired (/1 or nothing)
 		if [[ -z "{params.input_fq2}" ]]; then # single-end
-			grep "^C" {input.res} | awk 'FS="\\t"{{print substr($2,1,length($2)-2)"\\t0\\t"$3}}' >> {output}
+			header_suffix=2;
 		else # paired-end
-			grep "^C" {input.res} | awk 'FS="\\t"{{print $2"\\t0\\t"$3}}' >> {output}
+			header_suffix=0;
 		fi
+
+		grep "^C" {input.res} | awk -v header_suffix="${{header_suffix}}" 'FS="\\t"{{print substr($2,1,length($2)-header_suffix)"\\t0\\t"$3}}' >> {output}
 		"""
 
 rule centrifuge:
@@ -368,10 +379,18 @@ rule clark:
 rule clark_format:
 	input: csv = "{database}/{sample}/clark-{dbconfig}-{parameters}.csv",
 	output: "{database}/{sample}/clark-{dbconfig}-{parameters}.bioboxes"
+	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if config["samples"][wildcards.sample]["fq2"] else ""
 	shell:
 		"""
 		# bioboxes header
 		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" > {output}
 
-		awk 'FS=","{{if(NR>=2 && $3!="NA") print substr($1,1,length($1)-2)"\\t0\\t"$3;}}' {input.csv} >> {output}
+		# output header changes when sinle or paired (/1 or nothing)
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
+			header_suffix=2;
+		else # paired-end
+			header_suffix=0;
+		fi
+
+		awk -v header_suffix="${{header_suffix}}" 'FS=","{{if(NR>=2 && $3!="NA") print substr($1,1,length($1)-header_suffix)"\\t0\\t"$3;}}' {input.csv} >> {output}
 		"""
