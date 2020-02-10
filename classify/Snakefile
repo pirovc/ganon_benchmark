@@ -160,17 +160,24 @@ rule ganon:
 rule ganon_format:
 	input: lca="{database}/{sample}/ganon-{dbconfig}-{parameters}.lca",
 			dbprefix = lambda wildcards: os.path.abspath(config["run"]["ganon"][wildcards.database][wildcards.dbconfig]["prefix"])
-	output: "{database}/{sample}/ganon-{dbconfig}-{parameters}.bioboxes"
+	output: bioboxes = "{database}/{sample}/ganon-{dbconfig}-{parameters}.bioboxes",
+			bins = temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.bins")
 	shell: 
 		"""
 		# bioboxes header
-		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" > {output}
+		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" > {output.bioboxes}
 		
 		# if numeric (taxid) or assembly
-		awk 'FS="\\t"{{if($2 ~ /^[0-9]+$/){{print substr($1,1,length($1)-2)"\\t0\\t"$2}}}}' {input.lca} >> {output}
+		awk 'FS="\\t"{{if($2 ~ /^[0-9]+$/){{print substr($1,1,length($1)-2)"\\t0\\t"$2}}}}' {input.lca} >> {output.bioboxes}
 		
+		# regenerate bins
+		python -c 'import pickle, gzip;print(*(line for line in pickle.load(gzip.open("{input.dbprefix}/ganon_db.gnn", "rb"))["bins"]), sep="\\n")' > {output.bins}
+
 		# get taxid if classified at assembly level
-		join -1 2 -2 2 <(awk 'FS="\\t"{{if( $2 !~ /^[0-9]+$/){{print substr($1,1,length($1)-2)"\\t"$2"\\t"$3}}}}' {input.lca} | sort -k 2,2) <(cut -f 3,4 {input.dbprefix}/ganon_db.bins | sort | uniq | sort -k 2,2) -t$'\\t' -o "1.1,1.2,2.1" >> {output}
+		join -1 2 -2 2 \
+		<(awk 'FS="\\t"{{if( $2 !~ /^[0-9]+$/){{print substr($1,1,length($1)-2)"\\t"$2"\\t"$3}}}}' {input.lca} | sort -k 2,2) \
+		<(cut -f 3,4 {output.bins} | sort | uniq | sort -k 2,2) \
+		-t$'\\t' -o "1.1,1.2,2.1" >> {output.bioboxes}
 		"""
 
 rule krakenuniq:

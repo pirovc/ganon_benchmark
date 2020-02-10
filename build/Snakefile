@@ -120,6 +120,8 @@ rule krakenuniq_check:
 	output: "{database}/krakenuniq_db/{parameters}/krakenuniq_db.check"
 	shell: "du --block-size=1 {input} > {output}"#output in bytes
 
+
+
 rule kraken_prepare:
 	input: acc_len_taxid_assembly = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["acc_len_taxid_assembly"]),
 			nodes = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["nodes"]),
