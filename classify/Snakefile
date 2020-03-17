@@ -401,3 +401,44 @@ rule clark_format:
 
 		awk -v header_suffix="${{header_suffix}}" 'FS=","{{if(NR>=2 && $3!="NA") print substr($1,1,length($1)-header_suffix)"\\t0\\t"$3;}}' {input.csv} >> {output}
 		"""
+
+rule kraken2:
+	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
+			dbprefix = lambda wildcards: os.path.abspath(config["run"]["kraken2"][wildcards.database][wildcards.dbconfig]["prefix"])
+	output: res = temp("{database}/{sample}/kraken2-{dbconfig}-{parameters}.res"),
+			time = "{database}/{sample}/kraken2-{dbconfig}-{parameters}.time",
+			mbpm=temp("{database}/{sample}/kraken2-{dbconfig}-{parameters}.mbpm")
+	log: "{database}/{sample}/kraken2-{dbconfig}-{parameters}.log"
+	threads: config["threads"]
+	conda: srcdir("../envs/kraken2.yaml")
+	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if config["samples"][wildcards.sample]["fq2"] else "",
+			params = lambda wildcards: config["run"]["kraken2"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
+	shell: 
+		"""
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
+			/usr/bin/time -v --output={output.time} {config[tools_path][kraken2]}kraken2 --db {input.dbprefix} --threads {threads} --output {output.res} --fastq-input --gzip-compressed {params.params} {input.fq1} > {log} 2>&1
+		else # paired-end
+			/usr/bin/time -v --output={output.time} {config[tools_path][kraken2]}kraken2 --db {input.dbprefix} --threads {threads} --output {output.res} --fastq-input --gzip-compressed {params.params} --paired {input.fq1} {params.input_fq2} > {log} 2>&1
+		fi
+
+		grep " processed in " {log} | grep -o "[0-9.]* Mbp/m" | sed 's/ Mbp\\/m//g' > {output.mbpm}
+		"""
+
+rule kraken2_format:
+	input: res = "{database}/{sample}/kraken2-{dbconfig}-{parameters}.res"
+	output: "{database}/{sample}/kraken2-{dbconfig}-{parameters}.bioboxes"
+	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if config["samples"][wildcards.sample]["fq2"] else ""
+	shell:
+		"""
+		# bioboxes header
+		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" > {output}
+
+		# output header changes when sinle or paired (/1 or nothing)
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
+			header_suffix=2;
+		else # paired-end
+			header_suffix=0;
+		fi
+
+		grep "^C" {input.res} | awk -v header_suffix="${{header_suffix}}" 'FS="\\t"{{print substr($2,1,length($2)-header_suffix)"\\t0\\t"$3}}' >> {output}
+		"""

@@ -7,7 +7,7 @@ onsuccess:
 onerror:
 	remove_clusterlog()
 
-localrules: all, ganon_check, krakenuniq_prepare, krakenuniq_check, kraken_prepare, kraken_check, centrifuge_prepare, centrifuge_check, diamond_prepare, diamond_check, clark_prepare, clark_check, stats
+localrules: all, ganon_check, krakenuniq_prepare, krakenuniq_check, kraken_prepare, kraken2_prepare, kraken_check, centrifuge_prepare, centrifuge_check, diamond_prepare, diamond_check, clark_prepare, clark_check, stats
 
 rule all:
 	input:
@@ -319,3 +319,54 @@ rule clark_check:
 			targets="{database}/clark_db/{parameters}/targets.txt"
 	output: "{database}/clark_db/{parameters}/clark_db.check"
 	shell: "du --block-size=1 {input} > {output}" #output in bytes
+
+rule kraken2_prepare:
+	input: acc_len_taxid_assembly = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["acc_len_taxid_assembly"]),
+			nodes = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["nodes"]),
+			names = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["names"])
+	output: accession2taxid = temp("{database}/kraken2_db/{parameters}/taxonomy/kraken2.accession2taxid"),
+			nodes = "{database}/kraken2_db/{parameters}/taxonomy/nodes.dmp",
+			names = "{database}/kraken2_db/{parameters}/taxonomy/names.dmp"
+	params: dbprefix = "{database}/kraken2_db/{parameters}/"
+	shell: 
+		"""
+		mkdir -p {params.dbprefix}taxonomy
+		mkdir -p {params.dbprefix}library
+
+		cp {input.nodes} {output.nodes} # copy because it's part of the db
+		cp {input.names} {output.names} # copy because it's part of the db
+
+		awk -F "\\t" 'BEGIN {{FS="\\t";OFS="\\t"; print "accession","accession.version","taxid","gi"}}{{ if($1!="na"){{ split($1,acc,"."); print acc[1],$1,$3,"0" }}}}' {input.acc_len_taxid_assembly} > {output.accession2taxid}
+		"""
+
+rule kraken2:
+ 	input: fasta = lambda wildcards: os.path.abspath(config["databases"][wildcards.database]["fasta"]),
+ 			accession2taxid = "{database}/kraken2_db/{parameters}/taxonomy/kraken2.accession2taxid",
+ 			nodes = "{database}/kraken2_db/{parameters}/taxonomy/nodes.dmp",
+			names = "{database}/kraken2_db/{parameters}/taxonomy/names.dmp"
+	output: db1="{database}/kraken2_db/{parameters}/hash.k2d",
+			db2="{database}/kraken2_db/{parameters}/opts.k2d",
+			db3="{database}/kraken2_db/{parameters}/taxo.k2d",
+			time="{database}/kraken2_db/{parameters}/kraken2_db.time"
+	log: "{database}/kraken2_db/{parameters}/kraken2_db.log"
+	threads: config["threads"]
+	conda: srcdir("../envs/kraken2.yaml") 
+	params: params = lambda wildcards: config["run"]["kraken2"][wildcards.database][wildcards.parameters],
+			dbprefix = "{database}/kraken2_db/{parameters}/"
+	shell: 
+		"""
+		/usr/bin/time -v --output={output.time} bash -c "
+		{config[tools_path][kraken2]}kraken2-build --db {params.dbprefix} --no-masking --add-to-library {input.fasta} > {log} 2>&1;
+		{config[tools_path][kraken2]}kraken2-build --build --db {params.dbprefix} --threads {threads} {params.params} >> {log} 2>&1
+		"
+		rm -rfv {params.dbprefix}library/ {params.dbprefix}seqid2taxid.map {params.dbprefix}taxonomy/prelim_map.txt >> {log} 2>&1
+		"""
+
+rule kraken2_check:
+	input: "{database}/kraken2_db/{parameters}/hash.k2d",
+		   "{database}/kraken2_db/{parameters}/opts.k2d",
+		   "{database}/kraken2_db/{parameters}/taxo.k2d",
+		   "{database}/kraken2_db/{parameters}/taxonomy/nodes.dmp",
+		   "{database}/kraken2_db/{parameters}/taxonomy/names.dmp"
+	output: "{database}/kraken2_db/{parameters}/kraken2_db.check"
+	shell: "du --block-size=1 {input} > {output}"#output in bytes
