@@ -149,9 +149,9 @@ rule ganon:
 	shell: 
 		"""
 		if [[ -z "{params.input_fq2}" ]]; then # single-end
-			/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon classify --verbose --db-prefix {params.dbprefix}/ganon_db -r {input.fq1} -t {threads} {params.params} -o {params.outprefix} > {log} 2>&1
+			/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon classify --verbose --db-prefix {input.dbprefix}/ganon_db -r {input.fq1} -t {threads} {params.params} -o {params.outprefix} > {log} 2>&1
 		else # paired-end
-			/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon classify --verbose --db-prefix {params.dbprefix}/ganon_db -p {input.fq1} {params.input_fq2} -t {threads} {params.params} -o {params.outprefix} > {log} 2>&1		
+			/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon classify --verbose --db-prefix {input.dbprefix}/ganon_db -p {input.fq1} {params.input_fq2} -t {threads} {params.params} -o {params.outprefix} > {log} 2>&1		
 		fi
 		grep "ganon-classify processed " {log} | grep -o "[0-9.]* Mbp/m" | sed 's/ Mbp\\/m//g' > {output.mbpm}
 		"""
