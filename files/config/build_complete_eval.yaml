@@ -7,6 +7,7 @@ tools_path:
   centrifuge: ""
   diamond: ""
   clark: ""
+  kraken2: ""
 
 databases:
   20181219_abfv_refseq_cg_t3a: 
@@ -94,6 +95,17 @@ run:
     20181219_abfv_refseq_cg:
       default: ""
     20181219_abfv_refseq_cg_t3a:
+      default: ""
+    20150602_bacteria_refseq_old:
+      default: ""
+  kraken2:
+    20181219_abfv_refseq_cg:
+      default: ""
+    20181219_abfv_refseq_cg_t3a:
+      default: ""
+    20181219_abfv_refseq_all:
+      default: ""
+    20181219_abfv_refseq_all_t3a:
       default: ""
     20150602_bacteria_refseq_old:
       default: ""

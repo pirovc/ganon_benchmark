@@ -7,6 +7,7 @@ tools_path:
   centrifuge: ""
   diamond: ""
   clark: ""
+  kraken2: ""
   amber: "AMBER/"
 
 samples:
@@ -132,5 +133,30 @@ run:
         prefix: "ganon_eval/databases/20150602_bacteria_refseq_old/clark_db/default/"
         parameters:
           default: ""
-
+  kraken2:
+    20181219_abfv_refseq_cg_t3a:
+      default:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_cg_t3a/kraken2_db/default/"
+        parameters:
+          default: ""
+    20181219_abfv_refseq_cg:
+      default:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_cg/kraken2_db/default/"
+        parameters:
+          default: ""
+    20181219_abfv_refseq_all_t3a:
+      default:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_all_t3a/kraken2_db/default/"
+        parameters:
+          default: ""
+    20181219_abfv_refseq_all:
+      default:
+        prefix: "ganon_eval/databases/20181219_abfv_refseq_all/kraken2_db/default/"
+        parameters:
+          default: ""
+    20150602_bacteria_refseq_old:
+      default:
+        prefix: "ganon_eval/databases/20150602_bacteria_refseq_old/kraken2_db/default/"
+        parameters:
+          default: ""
 
