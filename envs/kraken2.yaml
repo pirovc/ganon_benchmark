@@ -3,4 +3,4 @@ channels:
  - bioconda
  - conda-forge
 dependencies:
- - ganon=0.2.1
+ - kraken2=2.0.8-beta

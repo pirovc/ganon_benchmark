@@ -1,6 +1,6 @@
 # ganon_benchmark
 
-benchmarking pipeline used to evaluate ganon as presented in https://www.biorxiv.org/content/10.1101/406017v2
+benchmarking pipeline used to evaluate ganon as presented in https://www.biorxiv.org/content/10.1101/406017v3
 
 ## description:
 
@@ -61,7 +61,7 @@ benchmarking pipeline used to evaluate ganon as presented in https://www.biorxiv
 	tar xf files/downloads/all.faa.tar.gz -C files/downloads/refseq_old_faa
 	cat files/downloads/refseq_old_faa/*/*.faa | awk '{if(substr($0,0,1)==">"){split($0,sep,"|"); print ">" sep[4] sep[5];}else{print $0}}' > files/bacteria_refseq_old/all.faa
 
-#### RefSeqCG
+#### RefSeq-CG
 
 	# .fna
 	zcat files/downloads/abfv_refseq_cg/recovered/files/*_genomic.fna.gz > files/abfv_refseq_cg/20181219_abfv_refseq_cg.fna
@@ -69,7 +69,7 @@ benchmarking pipeline used to evaluate ganon as presented in https://www.biorxiv
 	# .faa
 	zcat files/downloads/abfv_refseq_cg/recovered/files/*_protein.faa.gz > files/abfv_refseq_cg/20181219_abfv_refseq_cg.faa
 
-#### RefSeqCG top 3
+#### RefSeq-CG-top-3
 
 	# .fna
 	cut -f 4 files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a_acc_len_taxid_assembly.txt | sort | uniq | while read f; do zcat files/downloads/abfv_refseq_cg/recovered/files/${f}*_genomic.fna.gz >> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.fna 2> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.fna.log; done
@@ -77,7 +77,7 @@ benchmarking pipeline used to evaluate ganon as presented in https://www.biorxiv
 	# .faa
 	cut -f 4 files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a_acc_len_taxid_assembly.txt | sort | uniq | while read f; do zcat files/downloads/abfv_refseq_cg/recovered/files/${f}*_protein.faa.gz >> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.faa 2> files/abfv_refseq_cg_t3a/20181219_abfv_refseq_cg_t3a.fna.log; done
 
-#### RefSeqALL
+#### RefSeq-ALL
 
 	# .fna
 	zcat files/downloads/abfv_refseq_all/recovered/files/*_genomic.fna.gz > files/abfv_refseq_all/20181219_abfv_refseq_all.fna
@@ -85,7 +85,7 @@ benchmarking pipeline used to evaluate ganon as presented in https://www.biorxiv
 	# .faa
 	zcat files/downloads/abfv_refseq_all/recovered/files/*_protein.faa.gz > files/abfv_refseq_all/20181219_abfv_refseq_all.faa
 
-#### RefSeqALL top 3
+#### RefSeq-ALL-top-3
 
 	# .fna
 	cut -f 4 files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a_acc_len_taxid_assembly.txt | sort | uniq | while read f; do zcat files/downloads/abfv_refseq_all/recovered/files/${f}*_genomic.fna.gz >> files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a.fna 2> files/abfv_refseq_all_t3a/20181219_abfv_refseq_all_t3a.fna.log; done

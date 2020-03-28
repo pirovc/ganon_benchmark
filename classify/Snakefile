@@ -53,7 +53,7 @@ rule stats:
 		# elapsed time
 		timeelapsed=$(grep -oP "(?<=Elapsed \\(wall clock\\) time \\(h:mm:ss or m:ss\\): ).+" {input.time})
 		# time in seconds
-		timesec=$(echo ${{timeelapsed}} | awk '{{split($0,a,":");if(length(a)==2){{sec=(a[1]*60)+a[2]}}else{{sec=(a[1]*3600)+(a[2]*60)+a[3]}};print sec }}')
+		timesec=$(echo ${{timeelapsed}} | awk '{{l=split($0,a,":");if(l==2){{sec=(a[1]*60)+a[2]}}else{{sec=(a[1]*3600)+(a[2]*60)+a[3]}};print sec }}')
 
 		# peak memory in kilobytes 
 		memkbytes=$(grep -oP "(?<=Maximum resident set size \\(kbytes\\): ).+" {input.time})
@@ -81,7 +81,6 @@ rule taxdump_eval:
 		mv {params.outprefix}merged.dmp {params.outprefix}eval_merged.dmp
 		mv {params.outprefix}names.dmp {params.outprefix}eval_names.dmp
 		"""
-
 
 rule amber_gt:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
@@ -136,8 +135,7 @@ rule evaluation:
 rule ganon:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
 			dbprefix = lambda wildcards: os.path.abspath(config["run"]["ganon"][wildcards.database][wildcards.dbconfig]["prefix"])
-	output: out=temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.out"),
-			lca=temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.lca"),
+	output: lca=temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.lca"),
 			rep=temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.rep"),
 			tre=temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.tre"),
 			time="{database}/{sample}/ganon-{dbconfig}-{parameters}.time",
@@ -146,29 +144,39 @@ rule ganon:
 	threads: config["threads"]
 	conda: srcdir("../envs/ganon.yaml")
 	params: outprefix = "{database}/{sample}/ganon-{dbconfig}-{parameters}",
-			input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
+			input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if config["samples"][wildcards.sample]["fq2"] else "",
 			params = lambda wildcards: config["run"]["ganon"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters],
 	shell: 
 		"""
-		/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon classify --verbose -d {input.dbprefix}/ganon_db -r {input.fq1} -t {threads} {params.params} -o {params.outprefix} > {log} 2>&1
-
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
+			/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon classify --verbose --db-prefix {input.dbprefix}/ganon_db -r {input.fq1} -t {threads} {params.params} -o {params.outprefix} > {log} 2>&1
+		else # paired-end
+			/usr/bin/time -v --output={output.time} {config[tools_path][ganon]}ganon classify --verbose --db-prefix {input.dbprefix}/ganon_db -p {input.fq1} {params.input_fq2} -t {threads} {params.params} -o {params.outprefix} > {log} 2>&1		
+		fi
 		grep "ganon-classify processed " {log} | grep -o "[0-9.]* Mbp/m" | sed 's/ Mbp\\/m//g' > {output.mbpm}
 		"""
 
 rule ganon_format:
 	input: lca="{database}/{sample}/ganon-{dbconfig}-{parameters}.lca",
 			dbprefix = lambda wildcards: os.path.abspath(config["run"]["ganon"][wildcards.database][wildcards.dbconfig]["prefix"])
-	output: "{database}/{sample}/ganon-{dbconfig}-{parameters}.bioboxes"
+	output: bioboxes = "{database}/{sample}/ganon-{dbconfig}-{parameters}.bioboxes",
+			bins = temp("{database}/{sample}/ganon-{dbconfig}-{parameters}.bins")
 	shell: 
 		"""
 		# bioboxes header
-		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" > {output}
+		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" > {output.bioboxes}
 		
 		# if numeric (taxid) or assembly
-		awk 'FS="\\t"{{if($2 ~ /^[0-9]+$/){{print substr($1,1,length($1)-2)"\\t0\\t"$2}}}}' {input.lca} >> {output}
+		awk 'FS="\\t"{{if($2 ~ /^[0-9]+$/){{print substr($1,1,length($1)-2)"\\t0\\t"$2}}}}' {input.lca} >> {output.bioboxes}
 		
+		# regenerate bins
+		python -c 'import pickle, gzip;print(*(line for line in pickle.load(gzip.open("{input.dbprefix}/ganon_db.gnn", "rb"))["bins"]), sep="\\n")' > {output.bins}
+
 		# get taxid if classified at assembly level
-		join -1 2 -2 2 <(awk 'FS="\\t"{{if( $2 !~ /^[0-9]+$/){{print substr($1,1,length($1)-2)"\\t"$2"\\t"$3}}}}' {input.lca} | sort -k 2,2) <(cut -f 3,4 {input.dbprefix}/ganon_db.bins | sort | uniq | sort -k 2,2) -t$'\\t' -o "1.1,1.2,2.1" >> {output}
+		join -1 2 -2 2 \
+		<(awk 'FS="\\t"{{if( $2 !~ /^[0-9]+$/){{print substr($1,1,length($1)-2)"\\t"$2"\\t"$3}}}}' {input.lca} | sort -k 2,2) \
+		<(cut -f 3,4 {output.bins} | sort | uniq | sort -k 2,2) \
+		-t$'\\t' -o "1.1,1.2,2.1" >> {output.bioboxes}
 		"""
 
 rule krakenuniq:
@@ -181,12 +189,15 @@ rule krakenuniq:
 	log: "{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/krakenuniq.yaml")
-	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
+	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if config["samples"][wildcards.sample]["fq2"] else "",
 			params = lambda wildcards: config["run"]["krakenuniq"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
 	shell: 
 		"""
-		/usr/bin/time -v --output={output.time} {config[tools_path][krakenuniq]}krakenuniq --db {input.dbprefix} --threads {threads} --output {output.res} --only-classified-output --fastq-input --gzip-compressed --report-file {output.report} {params.params} {input.fq1} > {log} 2>&1
-
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
+			/usr/bin/time -v --output={output.time} {config[tools_path][krakenuniq]}krakenuniq --db {input.dbprefix} --threads {threads} --output {output.res} --only-classified-output --fastq-input --gzip-compressed --report-file {output.report} {params.params} {input.fq1} > {log} 2>&1
+		else # paired-end
+			/usr/bin/time -v --output={output.time} {config[tools_path][krakenuniq]}krakenuniq --db {input.dbprefix} --threads {threads} --output {output.res} --only-classified-output --fastq-input --gzip-compressed --report-file {output.report} {params.params} --paired {input.fq1} {params.input_fq2} > {log} 2>&1
+		fi
 		grep " processed in " {log} | grep -o "[0-9.]* Mbp/m" | sed 's/ Mbp\\/m//g' > {output.mbpm}
 		"""
 
@@ -194,16 +205,24 @@ rule krakenuniq_format:
 	input: res = "{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.res",
 			dbprefix = lambda wildcards: os.path.abspath(config["run"]["krakenuniq"][wildcards.database][wildcards.dbconfig]["prefix"])
 	output: "{database}/{sample}/krakenuniq-{dbconfig}-{parameters}.bioboxes"
+	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if config["samples"][wildcards.sample]["fq2"] else ""
 	shell:
 		"""
 		# bioboxes header
 		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" > {output}
 	
+		# output header changes when sinle or paired (/1 or nothing)
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
+			header_suffix=2;
+		else # paired-end
+			header_suffix=0;
+		fi
+
 		# get assembly assignemnts:
-		join -1 2 -2 1 <(grep "^C" {input.res} | awk 'FS="\\t"{{if($3>=1000000000) print substr($2,1,length($2)-2)"\\t"$3}}' | sort -k 2,2) <(sort -k 1,1 {input.dbprefix}/taxDB) -t$'\\t' -o "1.1,2.3,2.2" >> {output}
+		join -1 2 -2 1 <(grep "^C" {input.res} | awk -v header_suffix="${{header_suffix}}" 'FS="\\t"{{if($3>=1000000000) print substr($2,1,length($2)-header_suffix)"\\t"$3}}' | sort -k 2,2) <(sort -k 1,1 {input.dbprefix}/taxDB) -t$'\\t' -o "1.1,2.3,2.2" >> {output}
 
 		# append taxid only assignments:
-		grep "^C" {input.res} | awk 'FS="\\t"{{if($3<1000000000) print substr($2,1,length($2)-2)"\\t0\\t"$3}}' >> {output}
+		grep "^C" {input.res} | awk -v header_suffix="${{header_suffix}}" 'FS="\\t"{{if($3<1000000000) print substr($2,1,length($2)-header_suffix)"\\t0\\t"$3}}' >> {output}
 		"""
 
 rule kraken:
@@ -215,11 +234,15 @@ rule kraken:
 	log: "{database}/{sample}/kraken-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/kraken.yaml")
-	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
+	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if config["samples"][wildcards.sample]["fq2"] else "",
 			params = lambda wildcards: config["run"]["kraken"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
 	shell: 
 		"""
-		/usr/bin/time -v --output={output.time} {config[tools_path][kraken]}kraken --db {input.dbprefix} --threads {threads} --output {output.res} --only-classified-output --fastq-input --gzip-compressed {params.params} {input.fq1} > {log} 2>&1
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
+			/usr/bin/time -v --output={output.time} {config[tools_path][kraken]}kraken --db {input.dbprefix} --threads {threads} --output {output.res} --only-classified-output --fastq-input --gzip-compressed {params.params} {input.fq1} > {log} 2>&1
+		else # paired-end
+			/usr/bin/time -v --output={output.time} {config[tools_path][kraken]}kraken --db {input.dbprefix} --threads {threads} --output {output.res} --only-classified-output --fastq-input --gzip-compressed {params.params} --paired {input.fq1} {params.input_fq2} > {log} 2>&1
+		fi
 
 		grep " processed in " {log} | grep -o "[0-9.]* Mbp/m" | sed 's/ Mbp\\/m//g' > {output.mbpm}
 		"""
@@ -227,12 +250,20 @@ rule kraken:
 rule kraken_format:
 	input: res = "{database}/{sample}/kraken-{dbconfig}-{parameters}.res"
 	output: "{database}/{sample}/kraken-{dbconfig}-{parameters}.bioboxes"
+	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if config["samples"][wildcards.sample]["fq2"] else ""
 	shell:
 		"""
 		# bioboxes header
 		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" > {output}
 
-		grep "^C" {input.res} | awk 'FS="\\t"{{print substr($2,1,length($2)-2)"\\t0\\t"$3}}' >> {output}
+		# output header changes when sinle or paired (/1 or nothing)
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
+			header_suffix=2;
+		else # paired-end
+			header_suffix=0;
+		fi
+
+		grep "^C" {input.res} | awk -v header_suffix="${{header_suffix}}" 'FS="\\t"{{print substr($2,1,length($2)-header_suffix)"\\t0\\t"$3}}' >> {output}
 		"""
 
 rule centrifuge:
@@ -244,14 +275,14 @@ rule centrifuge:
 	log: "{database}/{sample}/centrifuge-{dbconfig}-{parameters}.log"
 	conda: srcdir("../envs/centrifuge.yaml")
 	threads: config["threads"]
-	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
-			params = lambda wildcards: config["run"]["centrifuge"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
+	params: input_fq2 = lambda wildcards: config["samples"][wildcards.sample]["fq2"] if config["samples"][wildcards.sample]["fq2"] else "",
+			params = lambda wildcards: config["run"]["centrifuge"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters] if config["run"]["centrifuge"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters] != "taxid" else ""
 	shell: 
 		"""
-		if [ "{params.params}" = "taxid" ]; then
-			/usr/bin/time -v --output={output.time} {config[tools_path][centrifuge]}centrifuge -t -x {input.dbprefix}/centrifuge_db -U {input.fq1} --threads {threads} -S {output.res} --report-file /dev/null > {log} 2>&1
-		else
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
 			/usr/bin/time -v --output={output.time} {config[tools_path][centrifuge]}centrifuge -t -x {input.dbprefix}/centrifuge_db -U {input.fq1} --threads {threads} -S {output.res} --report-file /dev/null {params.params} > {log} 2>&1
+		else # paired-end
+			/usr/bin/time -v --output={output.time} {config[tools_path][centrifuge]}centrifuge -t -x {input.dbprefix}/centrifuge_db -1 {input.fq1} -2 {params.input_fq2} --threads {threads} -S {output.res} --report-file /dev/null {params.params} > {log} 2>&1		
 		fi
 		grep -oP "(?<=Time searching: ).*" {log} | awk '{{split($0,a,":");sec=(a[1]*3600)+(a[2]*60)+a[3]; print "*"sec"*"}}' > {output.mbpm}
 		"""
@@ -293,11 +324,14 @@ rule diamond:
 	log: "{database}/{sample}/diamond-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/diamond.yaml")
-	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
+	params: input_fq2 = lambda wildcards: config["samples"][wildcards.sample]["fq2"] if config["samples"][wildcards.sample]["fq2"] else "",
 			params = lambda wildcards: config["run"]["diamond"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
 	shell: 
 		"""
-		/usr/bin/time -v --output={output.time} {config[tools_path][diamond]}diamond blastx --db {input.dbprefix}/diamond_db --query {input.fq1} --out {output.res} --outfmt 102 --threads {threads} {params.params} > {log} 2>&1
+		if [[ ! -z "{params.input_fq2}" ]]; then # paired-end
+			echo "DIAMOND does not support paired-end reads, using just first file" > {log};
+		fi
+		/usr/bin/time -v --output={output.time} {config[tools_path][diamond]}diamond blastx --db {input.dbprefix}/diamond_db --query {input.fq1} --out {output.res} --outfmt 102 --threads {threads} {params.params} >> {log} 2>&1
 
 		grep -oP "(?<=Total time \\= ).*" {log} | awk '{{print "*"substr($1, 1, length($1)-1)"*"}}' > {output.mbpm}
 		"""
@@ -318,21 +352,32 @@ rule clark:
 	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
 			dbprefix = lambda wildcards: os.path.abspath(config["run"]["clark"][wildcards.database][wildcards.dbconfig]["prefix"])
 	output: csv = temp("{database}/{sample}/clark-{dbconfig}-{parameters}.csv"),
-			fq1 = temp("{database}/{sample}/clark-{dbconfig}-{parameters}.fq"),
+			fq1 = temp("{database}/{sample}/clark-{dbconfig}-{parameters}.1.fq"),
+			fq2 = temp("{database}/{sample}/clark-{dbconfig}-{parameters}.2.fq"),
 			time = "{database}/{sample}/clark-{dbconfig}-{parameters}.time",
 			mbpm=temp("{database}/{sample}/clark-{dbconfig}-{parameters}.mbpm")
 	log: "{database}/{sample}/clark-{dbconfig}-{parameters}.log"
 	threads: config["threads"]
 	conda: srcdir("../envs/clark.yaml")
 	params: outprefix = "{database}/{sample}/clark-{dbconfig}-{parameters}",
-			input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if "fq2" in config["samples"][wildcards.sample] else "",
+			input_fq2 = lambda wildcards: config["samples"][wildcards.sample]["fq2"] if config["samples"][wildcards.sample]["fq2"] else "",
 			params = lambda wildcards: config["run"]["clark"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
 	shell: 
 		"""
-		/usr/bin/time -v --output={output.time} bash -c "
-		gzip -d -c {input.fq1} > {output.fq1};
-		{config[tools_path][clark]}CLARK -T {input.dbprefix}/targets.txt -D {input.dbprefix}/custom_0/ -R {params.outprefix} -O {output.fq1} -n {threads} {params.params} > {log} 2>&1;
-		"
+
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
+			/usr/bin/time -v --output={output.time} bash -c "
+			gzip -d -c {input.fq1} > {output.fq1};
+			touch {output.fq2};
+			{config[tools_path][clark]}CLARK -T {input.dbprefix}/targets.txt -D {input.dbprefix}/custom_0/ -R {params.outprefix} -O {output.fq1} -n {threads} {params.params} > {log} 2>&1;
+			"
+		else # paired-end
+			/usr/bin/time -v --output={output.time} bash -c "
+			gzip -d -c {input.fq1} > {output.fq1};
+			gzip -d -c {params.input_fq2} > {output.fq2};
+			{config[tools_path][clark]}CLARK -T {input.dbprefix}/targets.txt -D {input.dbprefix}/custom_0/ -R {params.outprefix} -P {output.fq1} {output.fq2} -n {threads} {params.params} > {log} 2>&1;
+			"
+		fi
 
 		grep -oP "(?<= - Assignment time\: )[^s]*" {log} | awk '{{print "*"$1"*"}}' > {output.mbpm}
 		"""
@@ -340,10 +385,59 @@ rule clark:
 rule clark_format:
 	input: csv = "{database}/{sample}/clark-{dbconfig}-{parameters}.csv",
 	output: "{database}/{sample}/clark-{dbconfig}-{parameters}.bioboxes"
+	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if config["samples"][wildcards.sample]["fq2"] else ""
 	shell:
 		"""
 		# bioboxes header
 		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" > {output}
 
-		awk 'FS=","{{if(NR>=2 && $3!="NA") print substr($1,1,length($1)-2)"\\t0\\t"$3;}}' {input.csv} >> {output}
+		# output header changes when sinle or paired (/1 or nothing)
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
+			header_suffix=2;
+		else # paired-end
+			header_suffix=0;
+		fi
+
+		awk -v header_suffix="${{header_suffix}}" 'FS=","{{if(NR>=2 && $3!="NA") print substr($1,1,length($1)-header_suffix)"\\t0\\t"$3;}}' {input.csv} >> {output}
+		"""
+
+rule kraken2:
+	input: fq1 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq1"]),
+			dbprefix = lambda wildcards: os.path.abspath(config["run"]["kraken2"][wildcards.database][wildcards.dbconfig]["prefix"])
+	output: res = temp("{database}/{sample}/kraken2-{dbconfig}-{parameters}.res"),
+			time = "{database}/{sample}/kraken2-{dbconfig}-{parameters}.time",
+			mbpm=temp("{database}/{sample}/kraken2-{dbconfig}-{parameters}.mbpm")
+	log: "{database}/{sample}/kraken2-{dbconfig}-{parameters}.log"
+	threads: config["threads"]
+	conda: srcdir("../envs/kraken2.yaml")
+	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if config["samples"][wildcards.sample]["fq2"] else "",
+			params = lambda wildcards: config["run"]["kraken2"][wildcards.database][wildcards.dbconfig]["parameters"][wildcards.parameters]
+	shell: 
+		"""
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
+			/usr/bin/time -v --output={output.time} {config[tools_path][kraken2]}kraken2 --db {input.dbprefix} --threads {threads} --output {output.res} --fastq-input --gzip-compressed {params.params} {input.fq1} > {log} 2>&1
+		else # paired-end
+			/usr/bin/time -v --output={output.time} {config[tools_path][kraken2]}kraken2 --db {input.dbprefix} --threads {threads} --output {output.res} --fastq-input --gzip-compressed {params.params} --paired {input.fq1} {params.input_fq2} > {log} 2>&1
+		fi
+
+		grep " processed in " {log} | grep -o "[0-9.]* Mbp/m" | sed 's/ Mbp\\/m//g' > {output.mbpm}
+		"""
+
+rule kraken2_format:
+	input: res = "{database}/{sample}/kraken2-{dbconfig}-{parameters}.res"
+	output: "{database}/{sample}/kraken2-{dbconfig}-{parameters}.bioboxes"
+	params: input_fq2 = lambda wildcards: os.path.abspath(config["samples"][wildcards.sample]["fq2"]) if config["samples"][wildcards.sample]["fq2"] else ""
+	shell:
+		"""
+		# bioboxes header
+		printf "@Version:0.9.1\\n@SampleID:{wildcards.sample}\\n@@SEQUENCEID\\tBINID\\tTAXID\\n" > {output}
+
+		# output header changes when sinle or paired (/1 or nothing)
+		if [[ -z "{params.input_fq2}" ]]; then # single-end
+			header_suffix=2;
+		else # paired-end
+			header_suffix=0;
+		fi
+
+		grep "^C" {input.res} | awk -v header_suffix="${{header_suffix}}" 'FS="\\t"{{print substr($2,1,length($2)-header_suffix)"\\t0\\t"$3}}' >> {output}
 		"""
